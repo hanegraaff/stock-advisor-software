@@ -1,0 +1,10 @@
+env
+venv
+env.txt
+*.pyc
+settings.json
+launch.json
+.coverage
+htmlcov
+reports
+cache.db*
