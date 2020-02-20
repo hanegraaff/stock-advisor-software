@@ -26,6 +26,15 @@ def create_dir(dirname):
 
 def format_dict(dict_string : dict):
     """
-        formats a dictionary. Used improve the quality of din
+        formats a dictionary so that it can be printed to console
+
+        Parameters
+        ------------
+        dict_string : dictionary to be formatted
+        
+        Returns
+        ------------
+        None
+        
     """
     return json.dumps(dict_string, indent=4)

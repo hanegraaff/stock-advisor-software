@@ -2,90 +2,87 @@
 
 """
 import argparse
-import datetime
-from datetime import timedelta
 import logging
 from support import util
 from exception.exceptions import BaseError
 from data_provider import intrinio_data
 from support.financial_cache import cache
-from support import util
+from strategies.low_price_dispersion_strategy import LowPriceDispersionStrategy
 #
 # Main script
 #
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] - %(message)s')
 
-description = """ Analyzes securities and displays the degree price target consensus based on Zacks market data
-                  provided by Intrinio.
+description = """ Generate a portfolio reccomendation based given a list a ticker symbols.
+                  Selection is based on on the degree of analyst target price agreement,
+                  specifically it will select stocks with the lowest target price dispersion
+                  and highest analyst predicted return.
 
-                  The input parameters can either be a ticker symbol or a file containing a list of them.
-                  The output is a dictionary printed to the console containing price target metrics.
+                  The input parameter is a file containing a list of of ticker symbols (one per line), a 
+                  current or historical month/year date context for this analysis, and a portfolio size 
+                  indicating the number of recommended stocks.
+
+                  The output is a table sorted into deciles that includes various target price statistics.
               """
 
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument("-ticker", help="Ticker Symbol", type=str)
 parser.add_argument("-ticker-file", help="Ticker Symbol file", type=str)
+parser.add_argument("-month", help="Data month", type=int)
+parser.add_argument("-year", help="Data year", type=int)
+parser.add_argument("-portfolio_size", help="Portfolio Size", type=int)
 
 log = logging.getLogger()
 
 args = parser.parse_args()
 
-ticker = args.ticker.upper() if args.ticker != None else None
 ticker_file = args.ticker_file
+month = args.month
+year = args.year
+portfolio_size = args.portfolio_size
 
-if ((ticker == None and ticker_file == None) or (ticker != None and ticker_file != None)):
-    print("Invalid Parameters. Must supply either 'ticker' or 'ticker-file' parameter")
+if (ticker_file == None or month == None or year == None or portfolio_size == None):
+    log.error("Invalid Parameters: %s" % args)
     exit(-1)
 
-log.debug("Parameters:")
-log.debug("Ticker: %s" % ticker)
-log.debug("Ticker File: %s" % ticker_file)
+if (year < 2000 or (month not in range(1, 13))):
+    log.error("parameters out of range")
+    exit(-1)
 
-today = datetime.datetime.now()
-five_days_ago = today - timedelta(days=5)
+
+log.debug("Parameters:")
+log.debug("Ticker File: %s" % ticker_file)
+log.debug("month: %d" % month)
+log.debug("year: %d" % year)
+log.debug("portfolio size: %d" % portfolio_size)
 
 ticker_list = []
 
-if (ticker != None):
-    ticker_list.append(ticker)
-else:
-    try:
-        with open(ticker_file) as f:
-            ticker_list = f.read().splitlines()
-    except Exception as e:
-        logging.error("Could run script, because, %s" % (str(e)))
-        exit(-1)
+try:
+    with open(ticker_file) as f:
+        ticker_list = f.read().splitlines()
 
-results = {}
-for ticker in ticker_list:
-    try:
-        price_dict = intrinio_data.get_daily_stock_close_prices(
-            ticker, five_days_ago, today)
-        current_price = price_dict[sorted(
-            list(price_dict.keys()), reverse=True)[0]]
+    strategy = LowPriceDispersionStrategy(ticker_list, year, month, portfolio_size)
+    portfolio = strategy.generate_portfolio()
+    portfolio_dataframe = strategy.portfolio_dataframe
+    raw_dataframe = strategy.raw_dataframe
 
-        target_price_sdtdev = intrinio_data.__read_company_data_point__(ticker, 'zacks_target_price_std_dev')
-        target_price_avg = intrinio_data.__read_company_data_point__(ticker, 'zacks_target_price_mean')
-        target_price_sdtdev_pct = target_price_sdtdev / target_price_avg * 100
+    log.info("")
+    log.info("Recommended Portfolio")
+    log.info(util.format_dict(portfolio.to_dict()))
+    log.info("")
 
-        analyst_dict = {
-            'ticker' : ticker,
-            'target_price_count' : intrinio_data.__read_company_data_point__(ticker, 'zacks_target_price_cnt'),
-            'target_price_sdtdev' : target_price_sdtdev,
-            'target_price_avg' : target_price_avg,
-            'target_price_sdtdev_pct' : "%4.3f" % target_price_sdtdev_pct,
-            'current_price' : current_price
-        }
+    log.info("Recommended Portfolio Return: %.2f%%" % (portfolio_dataframe['actual_return'].mean()*100))
+    log.info("Average Return: %.2f%%" % (strategy.raw_dataframe['actual_return'].mean()*100))
+    log.info("")
+    log.info("Analysis data")
+    log.info(strategy.raw_dataframe)
 
-        results[target_price_sdtdev_pct] = analyst_dict
-
-    except BaseError as be:
-        logging.debug("Could not valuate %s, because: %s" % (ticker, str(be)))
-
-    for key in sorted(list(results)):
-        logging.info("%s" % util.format_dict(results[key]))
-
-# close the financial cache
-cache.close()
+    
+except Exception as e:
+    log.error("Could run script, because, %s" % (str(e)))
+    exit(-1)
+finally:
+    # close the financial cache
+    cache.close()
