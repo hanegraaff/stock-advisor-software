@@ -60,7 +60,7 @@ def get_month_date_range(year : int, month : int):
     if month not in range(1, 13):
       raise ValidationError("Invalid month. Must be between 0 and 12" + str(month), None)
       
-    (x, last_date) = calendar.monthrange(year,month)
+    last_date = calendar.monthrange(year,month)[1]
 
     start = datetime(year, month, 1)
     end = datetime(year, month, last_date) 

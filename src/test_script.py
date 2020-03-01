@@ -8,7 +8,7 @@ from data_provider import intrinio_data
 from data_provider import intrinio_util
 from datetime import datetime
 from support import util
-from strategies.low_price_dispersion_strategy import LowPriceDispersionStrategy
+from strategies.price_dispersion_strategy import PriceDispersionStrategy
 
 #
 # Main script
@@ -28,7 +28,7 @@ args = parser.parse_args()
 ticker_list = []
 
 try:
-    strategy = LowPriceDispersionStrategy(['AAPL', 'MSFT'], 2019, 10, 3)
+    strategy = PriceDispersionStrategy(['AAPL', 'MSFT'], 2019, 10, 3)
     portfolio = strategy.generate_portfolio()
     print(util.format_dict(portfolio.to_dict()))
     

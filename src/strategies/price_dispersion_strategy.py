@@ -8,7 +8,7 @@ from exception.exceptions import BaseError, ValidationError, DataError
 
 
 
-class LowPriceDispersionStrategy():
+class PriceDispersionStrategy():
     """
         An invenstment strategy based on analyst targer price agreement measured as
         the price dispersion, as detailed in this paper:
@@ -36,9 +36,10 @@ class LowPriceDispersionStrategy():
 
     """
 
-    STRATEGY_NAME = "LOW_PRICE_DISPERSION"
 
-    def __init__(self, ticker_list : list, year : int, month : int, portfolio_size : int):
+    STRATEGY_NAME = "PRICE_DISPERSION"
+
+    def __init__(self, ticker_list : list, data_year : int, data_month : int, portfolio_size : int):
         """
             Initializes the class with the ticker list, a year and a month.
 
@@ -54,7 +55,7 @@ class LowPriceDispersionStrategy():
             year : analysis year
             month : analysis month
             portfolio_size : number of recommended stocks that will be returned
-             by this strategy
+                by this strategy
             
             Returns
             ------------
@@ -67,12 +68,17 @@ class LowPriceDispersionStrategy():
         if  len(ticker_list) < 2:
             raise ValidationError("You must supply at least 2 ticker symbols", None)
 
-        (self.data_start_date, self.data_end_date) = intrinio_util.get_month_date_range(year, month)
+        (self.data_start_date, self.data_end_date) = intrinio_util.get_month_date_range(data_year, data_month)
+
+        
+        if (self.data_end_date > datetime.now()):
+            logging.debug("Setting analysis end date to 'today'")
+            self.data_end_date = datetime.now()
 
         self.ticker_list = ticker_list
-        self.today = datetime.now()
 
         self.portfolio_size = portfolio_size
+        self.data_date = "%d-%d" % (data_year, data_month)
 
     def __load_financial_data__(self):
         """
@@ -83,7 +89,7 @@ class LowPriceDispersionStrategy():
                 'ticker': [],
                 'target_price_avg': [],
                 'target_price_sdtdev': [],
-                'target_price_sdtdev_pct': []
+                'dispersion_stdev_pct': []
             }
 
             
@@ -102,42 +108,43 @@ class LowPriceDispersionStrategy():
 
         """
 
+        logging.debug("Loading financial data for %s strategy" % self.STRATEGY_NAME)
+
         pricing_raw_data = {
+            'analysis_period': [],
             'ticker': [],
             'analysis_price': [],
             'target_price_avg': [],
-            'current_price': [],
-            'target_price_sdtdev_pct': [],
-            'analyst_expected_return': [],
-            'actual_return': []
+            'dispersion_stdev_pct': [],
+            'analyst_expected_return': []
         }
     
         dds = self.data_start_date
-        dde = self.today if (self.today < self.data_end_date) else self.data_end_date
+        dde = self.data_end_date
         year = dds.year
         month = dds.month
 
         at_least_one = False
 
+        logging.debug("Analysis date range is %s, %s" % (dds.strftime("%Y-%m-%d"), dde.strftime("%Y-%m-%d")))
+        logging.debug("Analysis price date is %s" % (dde.strftime("%Y-%m-%d")))
+
         for ticker in self.ticker_list:
             try:
                 target_price_sdtdev = intrinio_data.get_target_price_std_dev(ticker, dds, dde)[year][month]
                 target_price_avg = intrinio_data.get_target_price_mean(ticker, dds, dde)[year][month]
-                target_price_sdtdev_pct = target_price_sdtdev / target_price_avg * 100
+                dispersion_stdev_pct = target_price_sdtdev / target_price_avg * 100
 
-                analysis_price = intrinio_data.get_latest_close_price(ticker, dde, 5)
-                current_price = intrinio_data.get_latest_close_price(ticker, self.today, 5)
+                analysis_price = intrinio_data.get_latest_close_price(ticker, dde, 5)[1]
 
-                analyst_expected_return = self.__calc_return_factor__(analysis_price, target_price_avg)
-                actual_return = self.__calc_return_factor__(analysis_price, current_price)
-                
+                analyst_expected_return = (target_price_avg - analysis_price) / analysis_price
+
+                pricing_raw_data['analysis_period'].append(self.data_date)
                 pricing_raw_data['ticker'].append(ticker)
                 pricing_raw_data['analysis_price'].append(analysis_price)
                 pricing_raw_data['target_price_avg'].append(target_price_avg)
-                pricing_raw_data['current_price'].append(current_price)
-                pricing_raw_data['target_price_sdtdev_pct'].append(target_price_sdtdev_pct)
+                pricing_raw_data['dispersion_stdev_pct'].append(dispersion_stdev_pct)
                 pricing_raw_data['analyst_expected_return'].append(analyst_expected_return )
-                pricing_raw_data['actual_return'].append(actual_return)
 
                 at_least_one = True
             except BaseError as be:
@@ -146,7 +153,7 @@ class LowPriceDispersionStrategy():
                 raise DataError("Could not read %s financial data" % (ticker), e)
 
         if not at_least_one:
-            raise DataError("Could not load pricing data for any if the supplied tickers", None)
+            raise DataError("Could not load financial data for any if the supplied tickers", None)
         
         return pricing_raw_data
 
@@ -171,11 +178,12 @@ class LowPriceDispersionStrategy():
             ------------
             None
         """
-        raw_dataframe = pd.DataFrame(pricing_raw_data).set_index('ticker')
-        raw_dataframe['decile'] = pd.qcut(pricing_raw_data['target_price_sdtdev_pct'], 10, labels=False, duplicates='drop')
-        raw_dataframe =  raw_dataframe.sort_values(['decile', 'analyst_expected_return'], ascending = (True, False))
+        raw_dataframe = pd.DataFrame(pricing_raw_data)
+        pd.options.display.float_format = '{:.3f}'.format
+        raw_dataframe['decile'] = pd.qcut(pricing_raw_data['dispersion_stdev_pct'], 10, labels=False, duplicates='drop')
+        raw_dataframe =  raw_dataframe.sort_values(['decile', 'analyst_expected_return'], ascending = (False, False))
     
-        selected_portfolio = raw_dataframe.head(self.portfolio_size).drop(['decile', 'target_price_avg', 'target_price_sdtdev_pct', 'analyst_expected_return'], axis=1)
+        selected_portfolio = raw_dataframe.head(self.portfolio_size).drop(['decile', 'target_price_avg', 'dispersion_stdev_pct', 'analyst_expected_return'], axis=1)
 
         return (selected_portfolio, raw_dataframe)
 
@@ -204,6 +212,6 @@ class LowPriceDispersionStrategy():
         """
         (self.portfolio_dataframe, self.raw_dataframe) = self.__convert_to_data_frame__(self.__load_financial_data__())
 
-        p = Portfolio(self.today, self.data_end_date, self.STRATEGY_NAME, self.portfolio_dataframe.index.values.tolist())
+        p = Portfolio(datetime.now(), self.data_end_date, self.STRATEGY_NAME, self.portfolio_dataframe['ticker'].tolist())
         
         return p

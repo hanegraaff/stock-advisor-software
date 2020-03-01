@@ -24,7 +24,7 @@ src/requirements.txt, code is 5, comment is 0, blank is 0.
 src/run.sh, code is 1, comment is 1, blank is 0.
 src/run_tests.py, code is 11, comment is 0, blank is 4.
 src/strategies/portfolio.py, code is 33, comment is 20, blank is 15.
-src/strategies/low_price_dispersion_strategy.py, code is 70, comment is 1, blank is 39.
+src/strategies/price_dispersion_strategy.py, code is 70, comment is 1, blank is 39.
 src/support/financial_cache.py, code is 31, comment is 22, blank is 17.
 src/support/util.py, code is 11, comment is 0, blank is 7.
 src/test.sh, code is 2, comment is 1, blank is 0.

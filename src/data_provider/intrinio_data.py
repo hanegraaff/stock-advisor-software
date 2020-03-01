@@ -123,7 +123,7 @@ def get_latest_close_price(ticker, price_date : datetime, max_looback : int):
 
       Returns
       -----------
-      a float with the price value
+      a tuple of date, float with the latest price date and price value
     """
 
     if max_looback not in range (1,10):
@@ -132,8 +132,10 @@ def get_latest_close_price(ticker, price_date : datetime, max_looback : int):
     looback_date = price_date - timedelta(days=max_looback)
 
     price_dict = get_daily_stock_close_prices(ticker, looback_date, price_date)
-        
-    return price_dict[sorted(list(price_dict.keys()), reverse=True)[0]]
+
+    price_date = sorted(list(price_dict.keys()), reverse=True)[0]    
+    
+    return (price_date, price_dict[price_date])
 
 
 def get_historical_revenue(ticker: str, year_from: int, year_to: int):
@@ -166,8 +168,8 @@ def get_historical_revenue(ticker: str, year_from: int, year_to: int):
       }
     '''
 
-    (start_date, x) = intrinio_util.get_year_date_range(year_from, 0)
-    (x, end_date) = intrinio_util.get_year_date_range(year_to, 0)
+    start_date = intrinio_util.get_year_date_range(year_from, 0)[0]
+    end_date = intrinio_util.get_year_date_range(year_to, 0)[1]
 
     return _aggregate_by_year(
         _get_company_historical_data(ticker, start_date, end_date, 'totalrevenue')
@@ -218,8 +220,8 @@ def get_historical_fcff(ticker: str, year_from: int, year_to: int):
       }
     '''
 
-    (start_date, x) = intrinio_util.get_year_date_range(year_from, 0)
-    (x, end_date) = intrinio_util.get_year_date_range(year_to, 0)
+    start_date = intrinio_util.get_year_date_range(year_from, 0)[0]
+    end_date = intrinio_util.get_year_date_range(year_to, 0)[1]
 
 
     return _aggregate_by_year(
@@ -515,9 +517,6 @@ def _get_company_historical_data(ticker: str, start_date: str, end_date: str, ta
       try:
           api_response = company_api.get_company_historical_data(
               ticker, tag, frequency=frequency, start_date=start_date, end_date=end_date)
-          
-          cache.write(cache_key, api_response)
-
       except ApiException as ae:
           raise DataError(
               "Error retrieving ('%s', %s - %s) -> '%s' from Intrinio Company API" % (ticker, start_date, end_date, tag), ae)
@@ -528,6 +527,9 @@ def _get_company_historical_data(ticker: str, start_date: str, end_date: str, ta
     if len(api_response.historical_data) == 0:
         raise DataError("No Data returned for ('%s', %s - %s) -> '%s' from Intrinio Company API" %
                         (ticker, start_date, end_date, tag), None)
+    else:
+        #only write to cache if response has some valid data
+        cache.write(cache_key, api_response)
 
     return api_response.historical_data_dict
 

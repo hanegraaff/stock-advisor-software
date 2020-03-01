@@ -3,3 +3,4 @@ coverage>=4.5.4
 diskcache>=4.1.0
 pandas>=1.0.1
 jinja2>=2.11.1
+openpyxl>=3.0.3

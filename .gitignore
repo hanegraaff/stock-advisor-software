@@ -8,3 +8,4 @@ launch.json
 htmlcov
 reports
 cache.db*
+*.xlsx
