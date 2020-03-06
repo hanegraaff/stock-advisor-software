@@ -27,11 +27,13 @@ Given a time period and list of ticker symbols:
 
 
 
-## Release Notes (v0.4)
+## Release Notes (v0.5)
 This is an early version with limited functionality.
 
-* Back test
-* Ability to perform MMT on a dataframe to compute current or historical returns.
+* Generate portfolio recommendation given a list of ticker symbols, and access to (Intrinio) financial data
+* Local caching of financial data
+* Back testing capability
+* Dockerized application
 
 ## Prerequisites
 ### API Keys
@@ -54,7 +56,7 @@ cd src
 pip install -r requirements.txt
 ```
 
-## Running the script
+## Running the stock advisor
 All scripts must be executed from the ```src``` folder.
 
 ```
@@ -109,6 +111,55 @@ CVX
 ```analysis_year``` / ```analysis_month``` represent the financial period used to make a recommendation, and ```price_date``` is the price date used to calculate the portfolio's current returns.
 
 The example above will generate a portfolio recommendation as of 06/2019 and display the return as of 2020/02/29
+
+### Running the application as a docker container
+
+It is possible to package the application as a Docker image.
+
+To build the container, run the following script:
+
+```
+>>./docker_build.sh
+Sending build context to Docker daemon    126MB
+Step 1/6 : FROM python:3.8-slim-buster
+ ---> ee07b1466448
+Step 2/6 : LABEL maintainer hanegraaff@gmail.com
+ ---> Running in a684be7d3a89
+Removing intermediate container a684be7d3a89
+ ---> fa1bfe7dedbb
+Step 3/6 : COPY ./src /app
+ ---> 2b4972cee31b
+Step 4/6 : WORKDIR /app
+ ---> Running in cc780c1aca64
+Removing intermediate container cc780c1aca64
+ ---> 2c9d26ea0a28
+Step 5/6 : RUN pip install -r requirements.txt
+ ---> Running in 8e6d18a64ef7
+...
+Removing intermediate container 8e6d18a64ef7
+ ---> b166ecddc400
+Step 6/6 : ENTRYPOINT ["python", "generate_portfolio.py"]
+ ---> Running in 3963296f1b3f
+Removing intermediate container 3963296f1b3f
+ ---> f1a79df20439
+Successfully built f1a79df20439
+Successfully tagged stock-advisor/generate-portfolio:v1.0.0
+```
+The resulting image will look like this:
+```
+>>docker images
+REPOSITORY                         TAG                 IMAGE ID            CREATED             SIZE
+stock-advisor/generate-portfolio   v1.0.0              f1a79df20439        9 hours ago         376MB
+python                             3.8-slim-buster     ee07b1466448        7 days ago          193MB
+```
+
+Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable. Also note that the ```-ticker-file``` is currently included in the image itself. Future enhancements will externalize this, most likely in an S3 bucket.
+
+Here is an example:
+
+```
+docker run -e INTRINIO_API_KEY=xxx image-id -ticker-file ticker-list.txt -analysis_year 2019 -analysis_month 8 -price_date 2019/10/30 -portfolio_size 3 
+```
 
 
 ## Output
@@ -218,20 +269,20 @@ src >>./test.sh
 Ran 50 tests in 0.036s
 
 OK
-Name                                          Stmts   Miss  Cover
------------------------------------------------------------------
-data_provider/intrinio_data.py                  131     39    70%
-data_provider/intrinio_util.py                   27      0   100%
-exception/exceptions.py                          27      1    96%
-strategies/calculator.py                         19      0   100%
-strategies/price_dispersion_strategy.py          65     26    60%
-strategies/portfolio.py                          29      0   100%
-support/financial_cache.py                       31      0   100%
-support/util.py                                  11      1    91%
------------------------------------------------------------------
-TOTAL                                           340     67    80%
+Name                                      Stmts   Miss  Cover
+-------------------------------------------------------------
+data_provider/intrinio_data.py              142     47    67%
+data_provider/intrinio_util.py               27      0   100%
+exception/exceptions.py                      27      1    96%
+strategies/calculator.py                     19      0   100%
+strategies/portfolio.py                      29      0   100%
+strategies/price_dispersion_strategy.py      65     26    60%
+support/financial_cache.py                   33      2    94%
+support/util.py                              11      1    91%
+-------------------------------------------------------------
+TOTAL                                       353     77    78%
 ```
 
 ## What's next?
-1) Additional Stragegies. For example a strategy that favors high price dispersion.
+1) Additional, pluggable stragegies.
 2) Automated trading platform

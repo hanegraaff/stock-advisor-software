@@ -1,0 +1,1 @@
+docker build -t stock-advisor/generate-portfolio:v1.0.0 .

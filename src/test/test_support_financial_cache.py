@@ -15,7 +15,6 @@ class TestFinancialCache(unittest.TestCase):
         
     @classmethod
     def tearDownClass(cls):
-        cls.test_cache.close()
         shutil.rmtree(cls.test_path)
 
     def test_no_cache_path(self):

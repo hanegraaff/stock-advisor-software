@@ -134,6 +134,3 @@ try:
 except Exception as e:
     log.error("Could run script, because, %s" % (str(e)))
     exit(-1)
-finally:
-    # close the financial cache
-    cache.close()

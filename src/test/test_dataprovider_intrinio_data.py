@@ -3,7 +3,6 @@ from unittest.mock import patch
 from intrinio_sdk.rest import ApiException
 from exception.exceptions import ValidationError, DataError
 from data_provider import intrinio_data
-from  support.financial_cache import cache
 from data_provider import intrinio_util
 from test import nop
 import datetime

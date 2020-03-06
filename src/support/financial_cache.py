@@ -1,6 +1,7 @@
 """Author: Mark Hanegraaff -- 2019
 """
 from io import BytesIO
+import atexit
 from diskcache import Cache
 from support import util
 from exception.exceptions import ValidationError
@@ -46,7 +47,7 @@ class FinancialCache():
         util.create_dir(path)
         
         try:
-            self.cache = Cache(path, size_limit=int(max_cache_size_bytes))
+            self.diskCache = Cache(path, size_limit=int(max_cache_size_bytes))
         except Exception as e:
             raise ValidationError('invalid max cache size', e)
 
@@ -71,7 +72,7 @@ class FinancialCache():
         if (key == "" or key is None) or (value == "" or value is None):
             return
 
-        self.cache[key] = value
+        self.diskCache[key] = value
 
     def read(self, key):
         """
@@ -88,13 +89,16 @@ class FinancialCache():
             The object in question, or None if they key is not present
         """
         try:
-            return self.cache[key]
+            return self.diskCache[key]
         except KeyError:
             log.debug("%s not found inside cache" % key)
             return None
 
-    def close(self):
-        self.cache.close()
+
+@atexit.register
+def shutdownCache():
+    log.debug("Shutting down cache")
+    cache.diskCache.close()
 
 
 cache = FinancialCache("./financial-data/")

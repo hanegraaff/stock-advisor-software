@@ -1,4 +1,5 @@
 import intrinio_sdk
+import atexit
 from intrinio_sdk.rest import ApiException
 import os
 from exception.exceptions import DataError, ValidationError
@@ -14,13 +15,18 @@ and implements a number of functions to read current and historical
 financial statements
 """
 
-API_KEY = os.environ['INTRINIO_API_KEY']
+try:
+  API_KEY = os.environ['INTRINIO_API_KEY']
+except KeyError as ke:
+  raise ValidationError("INTRINIO_API_KEY was not set", None)
 
 intrinio_sdk.ApiClient().configuration.api_key['api_key'] = API_KEY
+
 
 fundamentals_api = intrinio_sdk.FundamentalsApi()
 company_api = intrinio_sdk.CompanyApi()
 security_api = intrinio_sdk.SecurityApi()
+
 
 
 INTRINIO_CACHE_PREFIX = 'intrinio'
@@ -627,4 +633,22 @@ def _aggregate_by_year_month(historical_data : dict):
 
 
 
+@atexit.register
+def shutdown():
+  """
+    As of this writing (March 2020) there is a bug in the Intrinion API caused by this:
+    https://github.com/swagger-api/swagger-codegen/issues/9991
+
+    that prevents the threads in the API to cleanly shut down.
+    This is a workaround until a proper fix is released.
+
+    This code exists in the API source, but it's not invoked reliably, so we force
+    its invocation
+  """
+  fundamentals_api.api_client.pool.close()
+  fundamentals_api.api_client.pool.join()
+  company_api.api_client.pool.close()
+  company_api.api_client.pool.join()
+  security_api.api_client.pool.close()
+  security_api.api_client.pool.join()
 

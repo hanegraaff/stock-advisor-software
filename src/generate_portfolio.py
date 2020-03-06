@@ -24,7 +24,6 @@ def from_yyyymmdd(datestr):
 # Main script
 #
 
-
 description = """ Generate a portfolio recommendation given a list of ticker symbols.
                   Selection is based on on the degree of analyst target price agreement,
                   specifically it will select stocks with the lowest agreement and highest 
@@ -116,6 +115,4 @@ try:
 except Exception as e:
     log.error("Could run script, because, %s" % (str(e)))
     exit(-1)
-finally:
-    # close the financial cache
-    cache.close()
+
