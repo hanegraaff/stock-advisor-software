@@ -8,7 +8,7 @@ https://editorialexpress.com/cgi-bin/conference/download.cgi?db_name=SWFA2019&pa
 http://www.fmaconferences.org/Vegas/Papers/DspJanuary2016.pdf
 
 
-They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, relative agreement or disagreement is. 
+They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but relative agreement or disagreement is.
 
 The code presented here is based one the ```security-valuator``` project
 
@@ -16,21 +16,24 @@ https://github.com/hanegraaff/security-valuator
 
 
 ## Algorithm Description
-
 Given a time period and list of ticker symbols:
 
 1) Download analyst target price information: the average target price, the standard deviation of the price dispersion and latest price for the seleted time period.
 
-2) Compute the standard deviation to a percentage and sort all stocks into deciles ranked by that percentage.
+2) Normalize the standard deviation by converting it to a a percentage and sort all stocks into deciles ranked by that percentage.
 
 3) Select a portfolio from the last decile. This will return stocks with the largest level of disagreement.
 
+## Financial Data
+This pgroram relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. This data is sourced from Intrinio, though other providers could be used.
+
+Intrinio offers free access to their sandbox, which gives developers access to a limited dataset comprising of roughly 30 stocks. The results presented here are based on that. A paid subscription would allow access to a much larger universe of stocks.
 
 
 ## Release Notes (v0.5)
 This is an early version with limited functionality.
 
-* Generate portfolio recommendation given a list of ticker symbols, and access to (Intrinio) financial data
+* Generate portfolio recommendation given a list of ticker symbols.
 * Local caching of financial data
 * Back testing capability
 * Dockerized application
@@ -163,6 +166,9 @@ docker run -e INTRINIO_API_KEY=xxx image-id -ticker-file ticker-list.txt -analys
 
 
 ## Output
+
+The manin output is a JSON Document with the portfolio recommendation.
+
 ```
 [INFO] - 
 [INFO] - Recommended Portfolio
@@ -177,6 +183,9 @@ docker run -e INTRINIO_API_KEY=xxx image-id -ticker-file ticker-list.txt -analys
         "AAPL"
     ]
 }
+```
+Additionally, the program will display a Pandas Data Frame containing the ranked stocks used to select the final portfolio, and an indication of its relative performance compared to the average of all all supplied stocks.
+```
 [INFO] - 
 [INFO] - Recommended Portfolio Return: 19.49%
 [INFO] - Average Return: 4.77%
@@ -211,11 +220,6 @@ analysis_period ticker  dispersion_stdev_pct  analyst_expected_return  actual_re
          2019-8    JNJ                 5.205                    0.160          0.035       0
          2019-8      V                 5.398                    0.095         -0.009       0
 ```
-
-The output contains three pieces of data:
-1) The selected portfolio as a JSON document
-2) Selected portfolio return return vs average return
-3) Processed data frame, sorted in deciles, from used to select final portfolio
 
 The ```dispersion_stdev_pct``` column represents the degree of analyst agreement, lower values indicate higher agreement, and is expressed as as the standard deviation percentage (from the mean).
 
