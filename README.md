@@ -1,19 +1,20 @@
 # Overview
-A program that makes stock recommendations depending on the level of analyst target price agreement. It is based on the findings of paper like these:
+![Stock Advisor Design](doc/stock-advisor.png)
 
-https://www8.gsb.columbia.edu/faculty-research/sites/faculty-research/files/FRANK%20ZHANG%20PAPER%20PSZ_20190913.pdf
+A component of the Stock Advisor system that creates stock (US Equities) recommendations depending on the level of analyst target price agreement. It is based on the findings of paper like these:
 
-https://editorialexpress.com/cgi-bin/conference/download.cgi?db_name=SWFA2019&paper_id=80
-
-http://www.fmaconferences.org/Vegas/Papers/DspJanuary2016.pdf
+|Paper|Author(s)|
+|--|--|
+|[Consensus Analyst Target Prices: Information Content and Implications for Investors](doc/Consensus-Analyst-Target-Prices.pdf)|Asa B. Palley, Thomas D. Steffen, X. Frank Zhang|
+|[Dispersion in Analysts’ Target Prices and Stock Returns](doc/Dispersion-Analysts-Target-Prices-Stock-Returns.pdf)|Hongrui Feng Shu Yan|
+|[The predictive power of analyst price target and its dispersion](doc/Predictive-Power-Analyst-Price-Target-Dispersion.pdf)|Heng(Emily) Wang, Shu Yan|
 
 
 They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but relative agreement or disagreement is.
 
-The code presented here is based one the ```security-valuator``` project
+This repo is part of the Stock Advisor project found here:
 
-https://github.com/hanegraaff/security-valuator
-
+https://github.com/hanegraaff/stock-advisor-main-project
 
 ## Algorithm Description
 Given a time period and list of ticker symbols:

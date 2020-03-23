@@ -19,7 +19,7 @@ class TestDataProviderIntrinioData(unittest.TestCase):
                     side_effect=ApiException("Server Error")), \
              patch('support.financial_cache.cache', new=nop.Nop()):
 
-            (start_date, x) = intrinio_util.get_year_date_range(2018, 0)
+            (start_date) = intrinio_util.get_year_date_range(2018, 0)[0]
 
 
             with self.assertRaises(DataError):
