@@ -3,4 +3,4 @@ LABEL maintainer hanegraaff@gmail.com
 COPY ./src /app
 WORKDIR /app
 RUN pip install -r requirements.txt
-ENTRYPOINT ["python", "generate_portfolio.py"]
+ENTRYPOINT ["python", "stock_recommendation_svc.py"]

@@ -11,6 +11,10 @@ from data_provider import intrinio_util
 from support.financial_cache import cache
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
 from strategies import calculator
+from model.ticker_file import TickerFile
+from support import constants
+
+
 #
 # Main script
 #
@@ -27,23 +31,19 @@ description = """
 
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument("-ticker-file", help="Ticker Symbol file", type=str)
-parser.add_argument("-portfolio-size", help="Portfolio Size", type=int)
+parser.add_argument("-ticker-file", help="Ticker Symbol file", type=str, required=True)
+parser.add_argument("-portfolio-size", help="Portfolio Size", type=int, required=True)
 
 log = logging.getLogger()
 
 args = parser.parse_args()
 
-ticker_file = args.ticker_file
+ticker_file_name = args.ticker_file
 portfolio_size = args.portfolio_size
 
-if (ticker_file == None or portfolio_size == None):
-    log.error("Invalid Parameters: %s" % args)
-    exit(-1)
-
-log.debug("Parameters:")
-log.debug("Ticker File: %s" % ticker_file)
-log.debug("portfolio size: %d" % portfolio_size)
+log.info("Parameters:")
+log.info("Ticker File: %s" % ticker_file_name)
+log.info("portfolio size: %d" % portfolio_size)
 
 ticker_list = []
 
@@ -100,8 +100,8 @@ def backtest(year : int, month : int):
     backtest_report['sel_ret_3M'].append(portfolio_3m)
 
 try:
-    with open(ticker_file) as f:
-        ticker_list = f.read().splitlines()
+
+    ticker_list = TickerFile.from_local_file(constants.ticker_data_dir, ticker_file_name).ticker_list
 
     backtest(2019, 5)
     backtest(2019, 6)

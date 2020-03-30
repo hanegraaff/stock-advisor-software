@@ -56,10 +56,7 @@ class PriceDispersionStrategy():
             month : analysis month
             portfolio_size : number of recommended stocks that will be returned
                 by this strategy
-            
-            Returns
-            ------------
-            None
+
         """
 
         if (ticker_list is None or len(ticker_list) == 0):
@@ -97,15 +94,6 @@ class PriceDispersionStrategy():
             ------------
             DataError in case financial data could not be loaed for any
             securities
-
-            Parameters
-            ------------
-            None
-            
-            Returns
-            ------------
-            None
-
         """
 
         logging.debug("Loading financial data for %s strategy" % self.STRATEGY_NAME)
@@ -172,11 +160,9 @@ class PriceDispersionStrategy():
 
             Parameters
             ------------
-            ticker_list : list of tickers to be included in the analisys
-            
-            Returns
-            ------------
-            None
+            pricing_raw_data : JSON document (suitable for pandas)
+            containin the raw financial data
+
         """
         raw_dataframe = pd.DataFrame(pricing_raw_data)
         pd.options.display.float_format = '{:.3f}'.format
@@ -196,15 +182,6 @@ class PriceDispersionStrategy():
             'analysis_price',
             'current_price',
             'actual_return'
-
-            Parameters
-            ------------
-            None
-
-            Raises
-            ------------
-            DataError in case financial data could not be loaed for any
-            securities
             
             Returns
             ------------

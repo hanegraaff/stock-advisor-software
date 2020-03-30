@@ -7,5 +7,6 @@
 **/test/
 **/htmlcov/
 **/financial-data/
+**/app-data/
 **/test*.*
 **/*.sh

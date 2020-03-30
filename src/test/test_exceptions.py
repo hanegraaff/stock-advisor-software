@@ -1,5 +1,5 @@
 import unittest
-from exception.exceptions import ValidationError, CalculationError, DataError, ReportError
+from exception.exceptions import ValidationError, CalculationError, DataError, ReportError, AWSError
 
 class TestExceptions(unittest.TestCase):
     
@@ -10,12 +10,7 @@ class TestExceptions(unittest.TestCase):
         self.assertEqual(str(CalculationError("Cannot do XYZ", None)), "Calculation Error: Cannot do XYZ")
         self.assertEqual(str(DataError("Cannot do XYZ", None)), "Data Error: Cannot do XYZ")
         self.assertEqual(str(ReportError("Cannot do XYZ", None)), "Report Error: Cannot do XYZ")
-
-        self.assertEqual(repr(ValidationError("Cannot do XYZ", None)), "Validation Error: Cannot do XYZ")
-        self.assertEqual(repr(CalculationError("Cannot do XYZ", None)), "Calculation Error: Cannot do XYZ")
-        self.assertEqual(repr(DataError("Cannot do XYZ", None)), "Data Error: Cannot do XYZ")
-        self.assertEqual(repr(ReportError("Cannot do XYZ", None)), "Report Error: Cannot do XYZ")
-
+        self.assertEqual(repr(AWSError("Cannot do XYZ", None)), "AWS Error: Cannot do XYZ")
 
     '''
         ValidationError Tests (covers all exceptions)

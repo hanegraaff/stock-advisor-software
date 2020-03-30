@@ -43,13 +43,6 @@ def get_month_date_range(year : int, month : int):
 
       E.g.
         2018, 1 -> ('2018-01-01', '2018-01-31')
-
-      Parameters
-      ----------
-      year : int
-        the year in question
-      month : int
-        the month in question
       
       Returns
       -----------
@@ -77,11 +70,6 @@ def get_month_date_range_str(year : int, month : int):
 def date_to_string(date : object):
   """
     returns a string representation of a date that is usable by the intrinio API
-
-    Parameters
-    ----------
-    date : object
-      the date in question
 
     Returns
     ----------

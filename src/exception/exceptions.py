@@ -59,6 +59,13 @@ class FileSystemError(BaseError):
     """
     def __print_cause__(self):
         return "Filesystem Error: " + super().__print_cause__()
+
+class AWSError(BaseError):
+    """
+        A class representing an AWS error
+    """
+    def __print_cause__(self):
+        return "AWS Error: " + super().__print_cause__()
     
 
     

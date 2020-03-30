@@ -1,14 +1,13 @@
 # Overview
 ![Stock Advisor Design](doc/stock-advisor.png)
 
-A component of the Stock Advisor system that creates stock (US Equities) recommendations depending on the level of analyst target price agreement. It is based on the findings of paper like these:
+The stock recommendation service is a component of the Stock Advisor system that generates stock (US Equities) recommendations depending on the level of analyst target price agreement. It is based on the findings of paper like these:
 
 |Paper|Author(s)|
 |--|--|
 |[Consensus Analyst Target Prices: Information Content and Implications for Investors](doc/Consensus-Analyst-Target-Prices.pdf)|Asa B. Palley, Thomas D. Steffen, X. Frank Zhang|
 |[Dispersion in Analysts’ Target Prices and Stock Returns](doc/Dispersion-Analysts-Target-Prices-Stock-Returns.pdf)|Hongrui Feng Shu Yan|
 |[The predictive power of analyst price target and its dispersion](doc/Predictive-Power-Analyst-Price-Target-Dispersion.pdf)|Heng(Emily) Wang, Shu Yan|
-
 
 They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but relative agreement or disagreement is.
 
@@ -17,27 +16,32 @@ This repo is part of the Stock Advisor project found here:
 https://github.com/hanegraaff/stock-advisor-main-project
 
 ## Algorithm Description
-Given a time period and list of ticker symbols:
+After reading a list of ticker symbols, the algorithm ranks them into deciles, with the lowest decile containing stocks with the highest level of analyst price agreement, and the highest decile containing stocks with the lowest price agreement. 
 
-1) Download analyst target price information: the average target price, the standard deviation of the price dispersion and latest price for the seleted time period.
+Next, the steps are outlined
 
-2) Normalize the standard deviation by converting it to a a percentage and sort all stocks into deciles ranked by that percentage.
-
-3) Select a portfolio from the last decile. This will return stocks with the largest level of disagreement.
+1) Download financial data for each symbol:
+    - Current Price
+    - Analyst price forecast average
+    - Analyst price forecast standard deviation
+2) Convert the standard deviation into a percentage from the mean.
+3) Rank the portfolio by this percentage and sort into deciles.
+4) Select a portfolio from the last decile. This will return stocks with the largest level of disagreement.
 
 ## Financial Data
-This pgroram relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. This data is sourced from Intrinio, though other providers could be used.
+This program relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. This data is sourced from Intrinio, though other providers could be used.
 
 Intrinio offers free access to their sandbox, which gives developers access to a limited dataset comprising of roughly 30 stocks. The results presented here are based on that. A paid subscription would allow access to a much larger universe of stocks.
 
 
-## Release Notes (v0.5)
+## Release Notes (v0.6)
 This is an early version with limited functionality.
 
 * Generate portfolio recommendation given a list of ticker symbols.
 * Local caching of financial data
 * Back testing capability
 * Dockerized application
+* Integrate into Stock Advisor Infrastructure
 
 ## Prerequisites
 ### API Keys
@@ -60,47 +64,45 @@ cd src
 pip install -r requirements.txt
 ```
 
-## Running the stock advisor
+## Running the service from the command line
 All scripts must be executed from the ```src``` folder.
 
 ```
-src >>python generate_portfolio.py -h
+src >>python stock_recommendation_svc.py -h
+usage: stock_recommendation_svc.py [-h] -ticker_file TICKER_FILE
+                                   -portfolio_size PORTFOLIO_SIZE
+                                   {test,production} ...
 
-usage: generate_portfolio.py [-h] [-ticker-file TICKER_FILE]
-                             [-analysis_month ANALYSIS_MONTH]
-                             [-analysis_year ANALYSIS_YEAR]
-                             [-price_date PRICE_DATE]
-                             [-portfolio_size PORTFOLIO_SIZE]
-
-Generate a portfolio recommendation given a list of ticker symbols. Selection
-is based on on the degree of analyst target price agreement, specifically it
-will select stocks with the lowest agreement and highest predicted return. The
-input parameters are a file containing a list of of ticker symbols, the period
-for the recommendations, a price date used to show actual returns and the size
-of the final portfolio selection. The output is a data structure with the
-selection, and a data frame showing the underlining stock ranking.
+Reads a list of US Equity ticker symbols and recommends a subset of them based
+on the degree of analyst target price agreement, specifically it will select
+stocks with the lowest agreement and highest predicted return. The input
+parameters are a file containing a list of of ticker symbols, the month and
+year period for the recommendations, a current price date used to compute
+actual returns, and size of the final recommendation. The output is a JSON
+data structure with the final selection. When running this script in
+"production" mode, the analysis period is determined at runtime, and inputs,
+like the ticker file are downloaded from S3.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -ticker-file TICKER_FILE
-                        Ticker Symbol file
-  -analysis_month ANALYSIS_MONTH
-                        Analysis period's month
-  -analysis_year ANALYSIS_YEAR
-                        Analysis period's year
-  -price_date PRICE_DATE
-                        Current Price Date (YYYY/MM/DD)
+  -ticker_file TICKER_FILE
+                        Ticker Symbol local file path
   -portfolio_size PORTFOLIO_SIZE
                         Selected Portfolio Size
+
+environment:
+  runtime environment
+
+  {test,production}     the runtime environment of the application. It can be
+                        either "test" or "production"
+    test                Test mode. Analysis period and current date must be
+                        passed explicitly
+    production          Production mode. Analysis period and current date are
+                        determined at runtime
 ```
 
-Examples:
-
-```
-python generate_portfolio.py -ticker-file ticker-list.txt -analysis_year 2019 -analysis_month 6 -price_date 2020/02/29 -portfolio_size 3
-```
-
-where ```ticker-list.txt``` (included in the source) is a list of ticker symbols like this:
+Where ```-ticker_file``` represents a local file or s3 object used to represent the universe of stocks that will be considered. It must contain
+a single ticker symbol per line.
 
 ```
 AAPL
@@ -112,15 +114,63 @@ CVX
 ...
 ```
 
-```analysis_year``` / ```analysis_month``` represent the financial period used to make a recommendation, and ```price_date``` is the price date used to calculate the portfolio's current returns.
+and ```-portfolio_size``` represents the the total number of recommended
+stocks resulting from the analysis
 
-The example above will generate a portfolio recommendation as of 06/2019 and display the return as of 2020/02/29
+The script can be run in two modes, representing different runtime environments.
 
-### Running the application as a docker container
+### Production mode
+**Production** mode will automatically determine the analysis period and current price date based on the calendar date. It will also use s3 to read some of its inputs, and store final results. This is the mode that must be used when running in ECS.
 
-It is possible to package the application as a Docker image.
+```
+src >>python stock_recommendation_svc.py production -h
+usage: stock_recommendation_svc.py production [-h] -app_namespace
+                                            APP_NAMESPACE
 
-To build the container, run the following script:
+optional arguments:
+-h, --help            show this help message and exit
+-app_namespace APP_NAMESPACE
+                        Application namespace used to identify AWS resources
+```
+
+For example:
+```
+python stock_recommendation_svc.py -ticker_file djia30.txt -portfolio_size 3 production -app_namespace sa
+```
+
+This example generates a 3 stock recommendation using the DOW 30 as an input. The namespace is used to identify the appropriate resources exposed by CloudFormation exports, e.g. the S3 bucket where results will be published.
+
+### Test mode
+**Test** mode will expect all parameters to be supplied in the command line, and will source the input ticker file locally. This mode is used when running and testing outside the production environment, and may also be used to run historically
+    
+```
+src >>python stock_recommendation_svc.py test -h
+usage: stock_recommendation_svc.py test [-h] -analysis_month ANALYSIS_MONTH
+                                        -analysis_year ANALYSIS_YEAR
+                                        -price_date PRICE_DATE
+
+optional arguments:
+-h, --help            show this help message and exit
+-analysis_month ANALYSIS_MONTH
+                        Analysis period's month
+-analysis_year ANALYSIS_YEAR
+                        Analysis period's year
+-price_date PRICE_DATE
+                        Current Price Date (YYYY/MM/DD)
+```
+
+For example:
+```
+python stock_recommendation_svc.py -ticker_file djia30.txt -portfolio_size 3 test -analysis_year 2020 -analysis_month 1 -price_date 2020/03/01 
+```
+
+This will generate a 3 stock recommendation using a local ticker file of the DOW 30 using an analysis period of 01/2020 and a price date of 03/01
+
+```analysis_year``` / ```analysis_month``` represent the financial period of the analyst forecasts, and ```price_date``` is the price date used to calculate the portfolio's current returns.
+
+
+## Running the service as a docker image
+It is possible to package the application as a Docker image. To build the container, run the following script:
 
 ```
 >>./docker_build.sh
@@ -142,12 +192,12 @@ Step 5/6 : RUN pip install -r requirements.txt
 ...
 Removing intermediate container 8e6d18a64ef7
  ---> b166ecddc400
-Step 6/6 : ENTRYPOINT ["python", "generate_portfolio.py"]
+Step 6/6 : ENTRYPOINT ["python", "recommendation_svc.py"]
  ---> Running in 3963296f1b3f
 Removing intermediate container 3963296f1b3f
  ---> f1a79df20439
 Successfully built f1a79df20439
-Successfully tagged stock-advisor/generate-portfolio:v1.0.0
+Successfully tagged stock-advisor/recommendation_svc:v1.0.0
 ```
 The resulting image will look like this:
 ```
@@ -157,18 +207,22 @@ stock-advisor/generate-portfolio   v1.0.0              f1a79df20439        9 hou
 python                             3.8-slim-buster     ee07b1466448        7 days ago          193MB
 ```
 
-Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable. Also note that the ```-ticker-file``` is currently included in the image itself. Future enhancements will externalize this, most likely in an S3 bucket.
+Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable. AWS credentials must also be supplied externally
 
-Here is an example:
+For example:
 
 ```
-docker run -e INTRINIO_API_KEY=xxx image-id -ticker-file ticker-list.txt -analysis_year 2019 -analysis_month 8 -price_date 2019/10/30 -portfolio_size 3 
+docker run -e INTRINIO_API_KEY=Ojk1ODdjY2NkNjI2YjlhMjM1ZjYzNWFiNGU2ZDVmNWMy -e BOTO_CONFIG=us-east-1 image-id -ticker_file djia30.txt -portfolio_size 3 production -app_namespace sa
 ```
 
+## Running the service in ECS
+This service is intended to be run in ECS using a fargate task. The automation contained in the (Stock Advisor) main project will make available the ECS Cluster, task definition, Container Repositry and CodeBuild project needed to build and deploy the service to AWS.
+
+More documentation will follow
 
 ## Output
 
-The manin output is a JSON Document with the portfolio recommendation.
+The main output is a JSON Document with the portfolio recommendation.
 
 ```
 [INFO] - 
@@ -270,24 +324,25 @@ This command will execute all unit tests and run the coverage report (using cove
 
 ```
 src >>./test.sh
-
-Ran 50 tests in 0.036s
+..................................................................
+----------------------------------------------------------------------
+Ran 66 tests in 0.059s
 
 OK
 Name                                      Stmts   Miss  Cover
 -------------------------------------------------------------
+cloud/aws_service_wrapper.py                 38      8    79%
 data_provider/intrinio_data.py              142     47    67%
 data_provider/intrinio_util.py               27      0   100%
-exception/exceptions.py                      27      1    96%
+exception/exceptions.py                      30      1    97%
+model/ticker_file.py                         50     10    80%
+service_support/recommendation_svc.py        20      0   100%
 strategies/calculator.py                     19      0   100%
 strategies/portfolio.py                      29      0   100%
 strategies/price_dispersion_strategy.py      65     26    60%
+support/constants.py                          8      0   100%
 support/financial_cache.py                   33      2    94%
 support/util.py                              11      1    91%
 -------------------------------------------------------------
-TOTAL                                       353     77    78%
+TOTAL                                       472     95    80%
 ```
-
-## What's next?
-1) Additional, pluggable stragegies.
-2) Automated trading platform

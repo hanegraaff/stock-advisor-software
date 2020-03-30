@@ -26,12 +26,6 @@ class FinancialCache():
 
             max_cache_size_bytes : int (kwargs)
             (optional) the maximum size of the cache in bytes
-
-            Raises
-            ------
-            ValidationError : in case an invalid cache size is supplied
-            FileSystemError : in case the cache directory cannot be created
-
             
             Returns
             -----------
@@ -55,19 +49,7 @@ class FinancialCache():
 
     def write(self, key : str, value : object):
         """
-            Writes an object to the cache
-
-            Parameters
-            ----------
-            key : str
-            The cache key
-
-            value : object
-            The cache value
-
-            Returns
-            ----------
-            None
+            Writes an object (value) to the cache using the supplied key
         """
         if (key == "" or key is None) or (value == "" or value is None):
             return
@@ -76,13 +58,8 @@ class FinancialCache():
 
     def read(self, key):
         """
-            Reads an object to the cache and returns None if it cannot
-            be found
-
-            Parameters
-            ----------
-            key : str
-            The cache key
+            Reads an object (value) to the cache given the supplied key
+            and returns None if it cannot be found
 
             Returns
             ----------

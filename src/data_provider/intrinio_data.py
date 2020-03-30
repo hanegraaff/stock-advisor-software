@@ -51,9 +51,7 @@ def get_target_price_cnt(ticker : str, start_date : datetime, end_date : datetim
 def get_daily_stock_close_prices(ticker : str, start_date : datetime, end_date : datetime):
       '''
         Returns a list of historical daily stock prices given a ticker symbol and
-        a range of dates.
-
-        Currently only returns one page of 100 results
+        a range of dates.  Currently only returns one page of 100 results
 
         Parameters
         ----------
@@ -63,11 +61,6 @@ def get_daily_stock_close_prices(ticker : str, start_date : datetime, end_date :
           The beginning price date as python date object
         end_date : object
           The end price date as python date object
-        
-        Raises
-        -----------
-        ValidationError in case of invalid paramters
-        DataError in case of any Intrinio errors
 
         Returns
         -----------
@@ -114,19 +107,6 @@ def get_latest_close_price(ticker, price_date : datetime, max_looback : int):
     """
       Retrieves the most recent close price given a price_date and a lookback window
 
-      Parameters
-      ----------
-      ticker : str
-        Ticker Symbol
-      price_date : datetime
-        pice date to look up
-      max_looback : int
-        maximum number of lookback days
-
-      Raises
-      -----------
-      DataError in case a price could not be found
-
       Returns
       -----------
       a tuple of date, float with the latest price date and price value
@@ -148,20 +128,6 @@ def get_historical_revenue(ticker: str, year_from: int, year_to: int):
     '''
       Returns a dictionary of year->"total revenue" for the supplied ticker and 
       range of years.
-
-      Parameters
-      ----------
-      ticker : str
-        Ticker Symbol
-      year_from : int
-        The beginning year to look up
-      end_from : int
-        The end year to look up
-
-      Raises
-      -----------
-      ValidationError in case of invalid paramters
-      DataError in case of any Intrinio errors
 
       Returns
       -----------
@@ -201,20 +167,6 @@ def get_historical_fcff(ticker: str, year_from: int, year_to: int):
         freecashflow = nopat - investedcapitalincreasedecrease
 
 
-      Parameters
-      ----------
-      ticker : str
-        Ticker Symbol
-      year_from : int
-        The beginning year to look up
-      end_from : int
-        The end year to look up
-
-      Raises
-      -----------
-      ValidationError in case of invalid paramters
-      DataError in case of any Intrinio errors
-
       Returns
       -----------
       a dictionary of year->"fcff value" like this
@@ -242,18 +194,6 @@ def get_historical_income_stmt(ticker: str, year_from: int,
       a ticker symbol, year from, year to and a list of tag filters
       used to narrow the results.
 
-      Parameters
-      ----------
-      ticker : str
-        Ticker Symbol
-      year_from : int
-        Start year of financial statement list
-      year_to : int
-        End year of the financial statement list 
-      tag_filter_list : list
-        List of data tags used to filter results. The name of each tag
-        must match an expected one from the Intrinio API
-
       Returns
       -------
       A dictionary of year=>dict with the filtered results. For example:
@@ -276,18 +216,6 @@ def get_historical_balance_sheet(ticker: str, year_from: int,
       a ticker symbol, year from, year to and a list of tag filters
       used to narrow the results.
 
-      Parameters
-      ----------
-      ticker : str
-        Ticker Symbol
-      year_from : int
-        Start year of financial statement list
-      year_to : int
-        End year of the financial statement list 
-      tag_filter_list : list
-        List of data tags used to filter results. The name of each tag
-        must match an expected one from the Intrinio API
-
       Returns
       -------
       A dictionary of year=>dict with the filtered results. For example:
@@ -308,18 +236,6 @@ def get_historical_cashflow_stmt(ticker: str, year_from: int,
       returns a partial or complete set of cashflow statements given
       a ticker symbol, year from, year to and a list of tag filters
       used to narrow the results.
-
-      Parameters
-      ----------
-      ticker : str
-        Ticker Symbol
-      year_from : int
-        Start year of financial statement list
-      year_to : int
-        End year of the financial statement list 
-      tag_filter_list : list
-        List of data tags used to filter results. The name of each tag
-        must match an expected one from the Intrinio API
 
       Returns
       -------
@@ -343,15 +259,6 @@ def _transform_financial_stmt(std_financials_list: list, tag_filter_list: list):
     """
       Helper function that transforms a financial statement stored in
       the raw Intrinio format into a more user friendly one.
-
-
-      Parameters
-      ----------
-      std_financials_list : list
-        List of standardized financials extracted from the Intrinio API
-      tag_filter_list : list
-        List of data tags used to filter results. The name of each tag
-        must match an expected one from the Intrinio API
 
       Returns
       -------
@@ -403,10 +310,6 @@ def _read_historical_financial_statement(ticker: str, statement_name: str, year_
         List of data tags used to filter results. The name of each tag
         must match an expected one from the Intrinio API. If "None", then all
         tags will be returned.
-
-      Raises
-      -------
-      DataError in case of any error calling the intrio API
 
       Returns
       -------

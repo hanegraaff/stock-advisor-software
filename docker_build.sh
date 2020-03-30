@@ -1,1 +1,1 @@
-docker build -t stock-advisor/generate-portfolio:v1.0.0 .
+docker build -t stock-advisor/recommendation_svc:v1.0.0 .
