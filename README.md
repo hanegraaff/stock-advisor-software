@@ -212,7 +212,7 @@ Once built, the container is executed in a similar way as the script. Note how t
 For example:
 
 ```
-docker run -e INTRINIO_API_KEY=xxx -e BOTO_CONFIG=us-east-1 image-id -ticker_file djia30.txt -portfolio_size 3 production -app_namespace sa
+docker run -e INTRINIO_API_KEY=xxx image-id -ticker_file djia30.txt -portfolio_size 3 production -app_namespace sa
 ```
 
 ## Running the service in ECS
