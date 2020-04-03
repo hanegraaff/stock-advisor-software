@@ -3,7 +3,7 @@
 from io import BytesIO
 import atexit
 from diskcache import Cache
-from support import util
+from support import util, constants
 from exception.exceptions import ValidationError
 import logging
 
@@ -78,4 +78,4 @@ def shutdownCache():
     cache.diskCache.close()
 
 
-cache = FinancialCache("./financial-data/")
+cache = FinancialCache(constants.financial_data_dir)

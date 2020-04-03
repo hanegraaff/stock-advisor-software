@@ -3,9 +3,8 @@ from datetime import datetime
 from data_provider import intrinio_data, intrinio_util
 import logging
 from support import util
-from strategies.portfolio import Portfolio
 from exception.exceptions import BaseError, ValidationError, DataError
-
+from model.recommendation_set import SecurityRecommendationSet
 
 
 class PriceDispersionStrategy():
@@ -15,25 +14,26 @@ class PriceDispersionStrategy():
 
         https://www8.gsb.columbia.edu/faculty-research/sites/faculty-research/files/FRANK%20ZHANG%20PAPER%20PSZ_20190913.pdf
 
-        Specifically, given a list ticker symbols, it will return a portfolio recommendation
-        based on the supplied list that consists of stocks with the lowest price dispersion (highest analyst agreement)
+        Specifically, given a list ticker symbols, it will return a recommendation
+        that consists of securities with the lowest price dispersion (highest analyst agreement)
         and highest price target.
 
-        The portfolio is represented as a JSON document like this:
+        The recommendation set is represented as a JSON document like this:
 
         {
-            'portfolio_name': str
-            'creation_time': iso8601 date
-            'data_date': iso8601 date
-            'portfolio':[
-                'str', 'str', 'str'
-            ]
+            "set_id": uuid (str),
+            "creation_date": ISO8601 Date - UTC Timezone,
+            "analysis_start_date": ISO8601 Date,
+            "analysis_end_date": ISO8601 Date,
+            "price_date": ISO8601 Date - UTC Timezone,
+            "strategy_name": str,
+            "security_type": str
+            "security_set": {
+                "str": float,
+                "str": float,
+                "str": float
+            }
         }
-
-        Note that for this strategy to be most effective you must supply a large set of tiker
-        symbols.
-
-
     """
 
 
@@ -54,7 +54,7 @@ class PriceDispersionStrategy():
             ticker_list : list of tickers to be included in the analisys
             year : analysis year
             month : analysis month
-            portfolio_size : number of recommended stocks that will be returned
+            portfolio_size : number of recommended securities that will be returned
                 by this strategy
 
         """
@@ -65,12 +65,12 @@ class PriceDispersionStrategy():
         if  len(ticker_list) < 2:
             raise ValidationError("You must supply at least 2 ticker symbols", None)
 
-        (self.data_start_date, self.data_end_date) = intrinio_util.get_month_date_range(data_year, data_month)
+        (self.analysis_start_date, self.analysis_end_date) = intrinio_util.get_month_date_range(data_year, data_month)
 
         
-        if (self.data_end_date > datetime.now()):
+        if (self.analysis_end_date > datetime.now()):
             logging.debug("Setting analysis end date to 'today'")
-            self.data_end_date = datetime.now()
+            self.analysis_end_date = datetime.now()
 
         self.ticker_list = ticker_list
 
@@ -107,8 +107,8 @@ class PriceDispersionStrategy():
             'analyst_expected_return': []
         }
     
-        dds = self.data_start_date
-        dde = self.data_end_date
+        dds = self.analysis_start_date
+        dde = self.analysis_end_date
         year = dds.year
         month = dds.month
 
@@ -173,7 +173,7 @@ class PriceDispersionStrategy():
 
         return (selected_portfolio, raw_dataframe)
 
-    def generate_portfolio(self):
+    def generate_recommendation(self):
         """
             Creates a recommended portfolio and returns it as a pandas data frame
             and with the following fields:
@@ -187,8 +187,13 @@ class PriceDispersionStrategy():
             ------------
             A pandas data frame containing the recommended portfolio
         """
-        (self.portfolio_dataframe, self.raw_dataframe) = self.__convert_to_data_frame__(self.__load_financial_data__())
+        (self.recommendation_dataframe, self.raw_dataframe) = self.__convert_to_data_frame__(self.__load_financial_data__())
 
-        p = Portfolio(datetime.now(), self.data_end_date, self.STRATEGY_NAME, self.portfolio_dataframe['ticker'].tolist())
-        
-        return p
+        priced_securities = {}
+        for row in self.recommendation_dataframe.itertuples(index=False):
+            priced_securities[row.ticker] = row.analysis_price
+
+        sr = SecurityRecommendationSet(datetime.now(), self.analysis_start_date, self.analysis_end_date, self.analysis_end_date, 
+            self.STRATEGY_NAME, "US Equities", priced_securities)
+
+        return sr

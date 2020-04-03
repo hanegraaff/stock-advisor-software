@@ -1,7 +1,7 @@
 # Overview
 ![Stock Advisor Design](doc/stock-advisor.png)
 
-The stock recommendation service is a component of the Stock Advisor system that generates stock (US Equities) recommendations depending on the level of analyst target price agreement. It is based on the findings of paper like these:
+The Securities Recommendation service is a component of the Stock Advisor system that generates monthly US Equities recommendations using a market sentiment algorythm that ranks stocks the level of analyst target price agreement. It is based on the findings of paper like these:
 
 |Paper|Author(s)|
 |--|--|
@@ -9,39 +9,40 @@ The stock recommendation service is a component of the Stock Advisor system that
 |[Dispersion in Analysts’ Target Prices and Stock Returns](doc/Dispersion-Analysts-Target-Prices-Stock-Returns.pdf)|Hongrui Feng Shu Yan|
 |[The predictive power of analyst price target and its dispersion](doc/Predictive-Power-Analyst-Price-Target-Dispersion.pdf)|Heng(Emily) Wang, Shu Yan|
 
-They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but relative agreement or disagreement is.
+They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but the degree of agreement/disagreement is.
 
 This repo is part of the Stock Advisor project found here:
 
 https://github.com/hanegraaff/stock-advisor-main-project
 
 ## Algorithm Description
-After reading a list of ticker symbols, the algorithm ranks them into deciles, with the lowest decile containing stocks with the highest level of analyst price agreement, and the highest decile containing stocks with the lowest price agreement. 
+The algorithm reads a list of ticker symbols and downloads various financial data points. It then ranks each security into deciles, with the lowest decile containing stocks with the highest level of analyst price agreement and the highest decile containing stocks with the lowest price agreement. It then sorts each decile by expected returns, and returns a subset of the list. The number of securities that are returned are specified in the command using the ```-output-size``` option.
 
-Next, the steps are outlined
+These are the specific steps:
 
 1) Download financial data for each symbol:
     - Current Price
     - Analyst price forecast average
     - Analyst price forecast standard deviation
-2) Convert the standard deviation into a percentage from the mean.
+    - Analyst price forecast count (i.e. total forecasts)
+2) Normalize the standard deviation by converting it into a relative percentage.
 3) Rank the portfolio by this percentage and sort into deciles.
-4) Select a portfolio from the last decile. This will return stocks with the largest level of disagreement.
+4) Select a subset from the last decile. This will return stocks with the largest level of disagreement.
 
 ## Financial Data
 This program relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. This data is sourced from Intrinio, though other providers could be used.
 
-Intrinio offers free access to their sandbox, which gives developers access to a limited dataset comprising of roughly 30 stocks. The results presented here are based on that. A paid subscription would allow access to a much larger universe of stocks.
+Intrinio offers free access to their sandbox, which gives developers access to a limited dataset comprising of the DOW30, and the results presented here are based on that list. A paid subscription allows access to a much larger universe of stocks.
 
 
-## Release Notes (v0.6)
-This is an early version with limited functionality.
+## Release Notes (v0.7)
+This is an initial version that offers the following features
 
-* Generate portfolio recommendation given a list of ticker symbols.
+* Ability to rank securities and generate recommendation.
 * Local caching of financial data
 * Back testing capability
-* Dockerized application
-* Integrate into Stock Advisor Infrastructure
+* Ability to run inside a Docker container
+* Integrate into Stock Advisor Infrastructure, specifically ECS.
 
 ## Prerequisites
 ### API Keys
@@ -54,7 +55,7 @@ the API must be saved to the environment like so:
 ### Installation requirements
 ```pip install -r requirements.txt```
 
-You may run this in a virtual environment like so:
+It is highly recommended to run this in a virtual environment:
 
 ```
 python3 -m venv venv
@@ -69,26 +70,25 @@ All scripts must be executed from the ```src``` folder.
 
 ```
 src >>python stock_recommendation_svc.py -h
-usage: stock_recommendation_svc.py [-h] -ticker_file TICKER_FILE
-                                   -portfolio_size PORTFOLIO_SIZE
+usage: stock_recommendation_svc.py [-h] -ticker_file TICKER_FILE -output_size
+                                   OUTPUT_SIZE
                                    {test,production} ...
 
 Reads a list of US Equity ticker symbols and recommends a subset of them based
 on the degree of analyst target price agreement, specifically it will select
 stocks with the lowest agreement and highest predicted return. The input
-parameters are a file containing a list of of ticker symbols, the month and
-year period for the recommendations, a current price date used to compute
-actual returns, and size of the final recommendation. The output is a JSON
-data structure with the final selection. When running this script in
-"production" mode, the analysis period is determined at runtime, and inputs,
-like the ticker file are downloaded from S3.
+parameters consist of a file with a list of of ticker symbols, and the month
+and year period for the recommendations. The output is a JSON data structure
+with the final selection. When running this script in "production" mode, the
+analysis period is determined at runtime, and the system will interact with the AWS
+infrastructure to read inputs and store outputs.
 
 optional arguments:
   -h, --help            show this help message and exit
   -ticker_file TICKER_FILE
                         Ticker Symbol local file path
-  -portfolio_size PORTFOLIO_SIZE
-                        Selected Portfolio Size
+  -output_size OUTPUT_SIZE
+                        Number of selected securities
 
 environment:
   runtime environment
@@ -114,13 +114,15 @@ CVX
 ...
 ```
 
-and ```-portfolio_size``` represents the the total number of recommended
-stocks resulting from the analysis
+and ```-output_size``` represents the the total number of recommended
+stocks resulting from the analysis.
 
 The script can be run in two modes, representing different runtime environments.
 
 ### Production mode
-**Production** mode will automatically determine the analysis period and current price date based on the calendar date. It will also use s3 to read some of its inputs, and store final results. This is the mode that must be used when running in ECS.
+**Production** mode will automatically determine the analysis period based on the calendar date, and display actual returns using the same. It will also use S3 to read the input ticker file and store results. This is the mode that must be used when running in ECS.
+
+In this mode the service will identify the appropriate AWS infrastructure using a combination of CloudFormation exports and a namespace suppled to the command line (```-app_namespace```) used to avoid collisions. So for example, if the application namespace is set to ```sa```, the S3 bucket will be identified using the ```sa-data-bucket-name``` export. These are defined in the ```support.constants``` module.
 
 ```
 src >>python stock_recommendation_svc.py production -h
@@ -135,33 +137,37 @@ optional arguments:
 
 For example:
 ```
-python stock_recommendation_svc.py -ticker_file djia30.txt -portfolio_size 3 production -app_namespace sa
+python stock_recommendation_svc.py -ticker_file djia30.txt -output_size 3 production -app_namespace sa
 ```
 
-This example generates a 3 stock recommendation using the DOW 30 as an input. The namespace is used to identify the appropriate resources exposed by CloudFormation exports, e.g. the S3 bucket where results will be published.
+This example generates a 3 stock recommendation using the DOW30 as an input, and using the latest analysis period based on calendar date.
 
 ### Test mode
-**Test** mode will expect all parameters to be supplied in the command line, and will source the input ticker file locally. This mode is used when running and testing outside the production environment, and may also be used to run historically
+**Test** mode expects the analysis period to be supplied using the command line, and will not interact with AWS, but rather rely on local resources. This mode is used when running and testing outside the production environment, and may also be used to run historically.
+
+In this mode, ```-price_date``` is optional, and is used to determine the price date used to display the current returns of the selection.
     
 ```
 src >>python stock_recommendation_svc.py test -h
 usage: stock_recommendation_svc.py test [-h] -analysis_month ANALYSIS_MONTH
                                         -analysis_year ANALYSIS_YEAR
-                                        -price_date PRICE_DATE
+                                        [-price_date PRICE_DATE]
 
 optional arguments:
--h, --help            show this help message and exit
--analysis_month ANALYSIS_MONTH
+  -h, --help            show this help message and exit
+  -analysis_month ANALYSIS_MONTH
                         Analysis period's month
--analysis_year ANALYSIS_YEAR
+  -analysis_year ANALYSIS_YEAR
                         Analysis period's year
--price_date PRICE_DATE
-                        Current Price Date (YYYY/MM/DD)
+  -price_date PRICE_DATE
+                        Price Date (YYYY/MM/DD) used to compute current
+                        returns
+
 ```
 
 For example:
 ```
-python stock_recommendation_svc.py -ticker_file djia30.txt -portfolio_size 3 test -analysis_year 2020 -analysis_month 1 -price_date 2020/03/01 
+python stock_recommendation_svc.py -ticker_file djia30.txt -output_size 3 test -analysis_year 2020 -analysis_month 1 -price_date 2020/03/01 
 ```
 
 This will generate a 3 stock recommendation using a local ticker file of the DOW 30 using an analysis period of 01/2020 and a price date of 03/01
@@ -207,16 +213,16 @@ stock-advisor/generate-portfolio   v1.0.0              f1a79df20439        9 hou
 python                             3.8-slim-buster     ee07b1466448        7 days ago          193MB
 ```
 
-Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable. AWS credentials must also be supplied externally
+Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable. AWS credentials must also be supplied externally, in a similar way.
 
 For example:
 
 ```
-docker run -e INTRINIO_API_KEY=xxx image-id -ticker_file djia30.txt -portfolio_size 3 production -app_namespace sa
+docker run -e INTRINIO_API_KEY=xxx image-id -ticker_file djia30.txt -output_size 3 production -app_namespace sa
 ```
 
 ## Running the service in ECS
-This service is intended to be run in ECS using a fargate task. The automation contained in the (Stock Advisor) main project will make available the ECS Cluster, task definition, Container Repositry and CodeBuild project needed to build and deploy the service to AWS.
+This service is intended to be run in ECS using a Fargate task. The automation contained in the (Stock Advisor) main project will create the ECS Cluster, task definition, Container Repository and CodeBuild project needed to build and deploy the service to AWS.
 
 More documentation will follow
 
@@ -226,23 +232,26 @@ The main output is a JSON Document with the portfolio recommendation.
 
 ```
 [INFO] - 
-[INFO] - Recommended Portfolio
+[INFO] - Recommended Securities
 [INFO] - {
-    "portfolio_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
-    "creation_date": "2020-03-01T04:56:57.612693+00:00",
-    "data_date": "2019-08-31T00:00:00",
+    "set_id": "fbd886d6-75a8-11ea-ad82-acbc329ef75f",
+    "creation_date": "2020-04-03T12:45:22.844743+00:00",
+    "analysis_start_date": "2019-08-01T00:00:00",
+    "analysis_end_date": "2019-08-31T00:00:00",
+    "price_date": "2019-08-31T04:00:00+00:00",
     "strategy_name": "PRICE_DISPERSION",
-    "portfolio": [
-        "GE",
-        "INTC",
-        "AAPL"
-    ]
+    "security_type": "US Equities",
+    "security_set": {
+        "GE": 8.25,
+        "INTC": 47.41,
+        "AAPL": 208.74
+    }
 }
 ```
 Additionally, the program will display a Pandas Data Frame containing the ranked stocks used to select the final portfolio, and an indication of its relative performance compared to the average of all all supplied stocks.
 ```
 [INFO] - 
-[INFO] - Recommended Portfolio Return: 19.49%
+[INFO] - Recommended Securities Return: 19.49%
 [INFO] - Average Return: 4.77%
 [INFO] - 
 [INFO] - Analysis Period - 8/2019, Actual Returns as of: 2019/10/30
@@ -276,35 +285,10 @@ analysis_period ticker  dispersion_stdev_pct  analyst_expected_return  actual_re
          2019-8      V                 5.398                    0.095         -0.009       0
 ```
 
-The ```dispersion_stdev_pct``` column represents the degree of analyst agreement, lower values indicate higher agreement, and is expressed as as the standard deviation percentage (from the mean).
-
-The ```decile``` column shows the relative ranking for this ticker.
-
-## Backtesting
-
-It is possible to backtest this strategy by running the ```price_dispersion_backtest.py``` script. It works by running the strategy from 05/2019 to 11/2019 and comparing the returns of the selected portfolio with the average of the list supplied to it.
-
-Example:
-
-```python price_dispersion_backtest.py -ticker-file ticker-list.txt -portfolio-size 3```
-
-```
-investment_period  ticker_sample_size  avg_ret_1M  sel_ret_1M  avg_ret_2M  sel_ret_2M  avg_ret_3M  sel_ret_3M
-          2019/05                  12       8.09%       9.95%      11.17%      12.31%       8.74%       5.49%
-          2019/06                  27       2.41%       3.56%      -1.95%     -10.78%       0.54%      -4.30%
-          2019/07                  27      -3.08%      -9.93%      -0.92%      -3.65%       0.17%       1.51%
-          2019/08                  27       2.85%       8.12%       4.77%      19.49%       7.34%      29.03%
-          2019/09                  23       2.26%       9.60%       4.80%      17.53%       8.21%      21.29%
-          2019/10                  28       2.67%       5.34%       4.99%       5.97%       6.43%      14.98%
-          2019/11                  26       2.26%       0.68%       3.53%       8.88%      -8.55%      -7.02%
-investment_period ticker_sample_size  avg_tot_1M  sel_tot_1M  avg_tot_2M  sel_tot_2M  avg_tot_3M  sel_tot_3M
-          ----/--                 --      17.45%      27.30%      26.39%      49.74%      22.89%      60.98%
-```
-
 Each line reports the returns for each montly portfolio selection at a 1 month, 2 month and 3 month horizon.
 
 ## Caching of financial data
-All financial data is saved to a local cache to reduce reliance on the Intrinio API. As of this version the data is set to never expire, and the cache will grow to a maximum size of 4GB.
+All financial data is saved to a local cache to reduce throttling and API limits when using the Intrinio API. As of this version the data is set to never expire, and the cache will grow to a maximum size of 4GB.
 
 The cache is located in the following path:
 
@@ -324,25 +308,25 @@ This command will execute all unit tests and run the coverage report (using cove
 
 ```
 src >>./test.sh
-..................................................................
+.......................................................................
 ----------------------------------------------------------------------
-Ran 66 tests in 0.059s
+Ran 71 tests in 0.056s
 
 OK
 Name                                      Stmts   Miss  Cover
 -------------------------------------------------------------
-cloud/aws_service_wrapper.py                 38      8    79%
+cloud/aws_service_wrapper.py                 60     10    83%
 data_provider/intrinio_data.py              142     47    67%
 data_provider/intrinio_util.py               27      0   100%
 exception/exceptions.py                      30      1    97%
+model/recommendation_set.py                  54      5    91%
 model/ticker_file.py                         50     10    80%
-service_support/recommendation_svc.py        20      0   100%
+service_support/recommendation_svc.py        29      3    90%
 strategies/calculator.py                     19      0   100%
-strategies/portfolio.py                      29      0   100%
-strategies/price_dispersion_strategy.py      65     26    60%
-support/constants.py                          8      0   100%
+strategies/price_dispersion_strategy.py      68     29    57%
+support/constants.py                         11      0   100%
 support/financial_cache.py                   33      2    94%
 support/util.py                              11      1    91%
 -------------------------------------------------------------
-TOTAL                                       472     95    80%
+TOTAL                                       534    108    80%
 ```

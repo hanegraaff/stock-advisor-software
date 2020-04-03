@@ -68,12 +68,12 @@ class TickerFile():
             Parameters
             ----------
             ticker_object_name : str
-                S3 object bane
+                S3 object name
             app_ns : str
                 Application namespace used to identify the appropriate
                 CloudFormation exports
-
         '''
+
         s3_object_path = "%s/%s" % (constants.s3_ticker_file_folder_prefix, ticker_object_name)
         destination_path = "%s/%s" % (constants.app_data_dir, ticker_object_name)
 

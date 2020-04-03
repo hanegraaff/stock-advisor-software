@@ -30,7 +30,7 @@ ticker_list = []
 
 try:
     '''strategy = PriceDispersionStrategy(['AAPL', 'MSFT'], 2019, 10, 3)
-    portfolio = strategy.generate_portfolio()
+    portfolio = strategy.generate_recommendation()
     print(util.format_dict(portfolio.to_dict()))'''
 
     print(aws_service_wrapper.cf_list_exports(['app-infra-base', 'app-infra-compute']))

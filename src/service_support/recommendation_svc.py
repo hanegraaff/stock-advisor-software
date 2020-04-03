@@ -13,19 +13,41 @@ It exists solely so that the code may be tested. otherwise it would
 be organized along with the service itself.
 """
 
-def from_yyyymmdd(datestr):
+def validate_environment(environment : str):
+    """
+        Validates the supplied enviornment against allowed values, and returns
+        the uppercase value of it.
+    """
+
+    environment = environment.upper()
+    allowed_values = ['TEST', 'PRODUCTION']
+    
+    if environment in allowed_values:
+        return environment
+    else: 
+        raise ValidationError("invalid environment value. Expected values are %s" % allowed_values, None)
+
+def validate_price_date(price_date_str : str):
     '''
-        Converts a parameter string in yyyy/mm/dd format to a date object
+        Converts the price date string in yyyy/mm/dd format to a date object.
+        Raises a ValidationError if the date could not be parsed or if
+        it's in the future.
 
         Returns
         ----------
         A datetime object with the converted date
     '''
     try:
-        return datetime.strptime(datestr, '%Y/%m/%d')
+        price_date = datetime.strptime(price_date_str, '%Y/%m/%d')
     except Exception:
-        raise ValidationError("%s is invalid. Expecting 'yyyy/mm/dd' format" % datestr, None)
+        raise ValidationError("%s is invalid. Expecting 'yyyy/mm/dd' format" % price_date_str, None)
+    
+    if price_date > datetime.now():
+        raise ValidationError("Price date cannot be in the future", None)
 
+    return price_date
+
+    
 def validate_commandline_parameters(year : int, month  : int, current_price_date : datetime):
     '''
         Validates command line parameters and throws an exception

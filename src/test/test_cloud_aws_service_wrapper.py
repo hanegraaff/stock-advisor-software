@@ -4,9 +4,17 @@ from unittest.mock import patch
 from exception.exceptions import AWSError
 from cloud import aws_service_wrapper
 from test import nop
+from support import constants
 
 
 class TestCloudAWSServiceWrapper(unittest.TestCase):
+
+    def setUp(self):
+        '''
+            make sure to clear out the local cache before each test
+            or results won't be predictible
+        '''
+        aws_service_wrapper.aws_response_cache = {}
 
     '''
         list_exports tests
@@ -17,7 +25,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                     side_effect=botocore.exceptions.BotoCoreError()):
 
             with self.assertRaises(AWSError):
-                aws_service_wrapper.cf_list_exports(['app-infra-base', 'app-infra-compute'])
+                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names)
 
     def test_cf_list_exports_no_data(self):
         with patch.object(aws_service_wrapper.cf_client, 'list_exports', \
@@ -26,7 +34,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                     }):
 
             self.assertEqual(
-                aws_service_wrapper.cf_list_exports(['app-infra-base', 'app-infra-compute']),
+                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names),
                 {}
             )
 
@@ -53,11 +61,26 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                         }):
 
             self.assertEqual(
-                aws_service_wrapper.cf_list_exports(['app-infra-base', 'app-infra-compute']),
+                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names),
                 {
                     "export-name-1": "export-value-1"
                 }
             )
+
+    def test_cf_list_exports_verify_cache(self):
+        with patch.object(aws_service_wrapper.cf_client, 'list_exports', \
+                return_value={
+                    "Exports": [
+                        {
+                            "ExportingStackId": "arn:aws:cloudformation:us-east-1:acct:stack/app-infra-base/c9481160-6df5-11ea-ac9f-121b58656156",
+                            "Name": "export-name-1",
+                            "Value": "export-value-1"
+                        }]
+                    }):
+                
+                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names)
+
+        self.assertEqual(len(aws_service_wrapper.aws_response_cache), 1)
 
     def test_cf_list_exports_invalid_arn(self):
         with patch.object(aws_service_wrapper.cf_client, 'list_exports', \
@@ -71,6 +94,24 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                     }):
 
             with self.assertRaises(AWSError):
-                    aws_service_wrapper.cf_list_exports(['app-infra-base', 'app-infra-compute'])
+                    aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names)
 
                     
+    '''
+        Upload/Download object test
+    '''
+    def test_s3_download_object_with_boto_exception(self):
+        with patch.object(aws_service_wrapper.s3_client, 'download_file', \
+                    side_effect=botocore.exceptions.BotoCoreError()):
+
+            with self.assertRaises(AWSError):
+                aws_service_wrapper.s3_download_object("bucket_name", "object_name", "./dest_path")
+
+    def test_s3_upload_ascii_string_with_boto_exception(self):
+        with patch.object(aws_service_wrapper.s3_client, 'put_object', \
+                    side_effect=botocore.exceptions.BotoCoreError()):
+
+            with self.assertRaises(AWSError):
+                aws_service_wrapper.s3_upload_ascii_string("some string to upload", "s3_bucket_name", "s3_object_name")
+
+

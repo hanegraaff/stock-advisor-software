@@ -30,7 +30,7 @@ def parse_params():
         Returns
         ----------
         A tuple containing the application paramter values
-        (environment, ticker_file_name, portfolio_size, month, year, current_price_date, app_ns)
+        (environment, ticker_file_name, output_size, month, year, current_price_date, app_ns)
     """
 
     description = """ Reads a list of US Equity ticker symbols and recommends a subset of them
@@ -38,20 +38,18 @@ def parse_params():
                   specifically it will select stocks with the lowest agreement and highest 
                   predicted return.
 
-                  The input parameters are a file containing a list of of ticker symbols, 
-                  the month and year period for the recommendations, a current price date used to compute
-                  actual returns, and size of the final recommendation. The output is a JSON data 
-                  structure with the final selection.
+                  The input parameters consist of a file with a list of of ticker symbols, 
+                  and the month and year period for the recommendations. 
+                  The output is a JSON data structure with the final selection.
 
                   When running this script in "production" mode, the analysis period
-                  is determined at runtime, and inputs, like the ticker file are downloaded
-                  from S3.
-
+                  is determined at runtime, and the system wil plug into the AWS infrastructure
+                  to read inputs and store outputs.
               """
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("-ticker_file", help="Ticker Symbol local file path", type=str, required=True)
-    parser.add_argument("-portfolio_size", help="Selected Portfolio Size", type=int, required=True)
+    parser.add_argument("-output_size", help="Number of selected securities", type=int, required=True)
 
     subparsers = parser.add_subparsers(title='environment', 
         description='runtime environment', 
@@ -62,7 +60,7 @@ def parse_params():
     test_subparser = subparsers.add_parser('test', help='Test mode. Analysis period and current date must be passed explicitly')
     test_subparser.add_argument("-analysis_month", help="Analysis period's month", type=int, required=True)
     test_subparser.add_argument("-analysis_year", help="Analysis period's year", type=int, required=True)
-    test_subparser.add_argument("-price_date", help="Current Price Date (YYYY/MM/DD)", type=str, required=True)
+    test_subparser.add_argument("-price_date", help="Price Date (YYYY/MM/DD) used to compute current returns", type=str, required=False)
 
     production_subparser = subparsers.add_parser('production', help='Production mode. Analysis period and current date are determined at runtime')
     production_subparser.add_argument("-app_namespace", help="Application namespace used to identify AWS resources", type=str, required=True)
@@ -70,15 +68,23 @@ def parse_params():
     args = parser.parse_args()
 
     ticker_file_name = args.ticker_file
-    portfolio_size = args.portfolio_size
+    output_size = args.output_size
     environment = args.environment
     app_ns = None
 
+    environment = recommendation_svc.validate_environment(environment)
+
     # argparse will ensure that these will be set to the allowed values
-    if (environment == 'test'):
+    if (environment == 'TEST'):
         year = args.analysis_year
         month = args.analysis_month
-        current_price_date = recommendation_svc.from_yyyymmdd(args.price_date)
+        price_date_string = args.price_date
+
+        if price_date_string == None:
+            log.info("Price Date not supplied. Using current date")
+            current_price_date = datetime.now()
+        else:
+            current_price_date = recommendation_svc.validate_price_date(args.price_date)
 
         recommendation_svc.validate_commandline_parameters(
             year, month, current_price_date
@@ -88,26 +94,23 @@ def parse_params():
         (year, month) = recommendation_svc.compute_analysis_period(current_price_date)
         app_ns = args.app_namespace
     
-    return (environment, ticker_file_name, portfolio_size, month, year, current_price_date, app_ns)
-
+    return (environment, ticker_file_name, output_size, month, year, current_price_date, app_ns)
 
 #
 # Main script
 #
 
 try:
-    (environment, ticker_file_name, portfolio_size, month, year, current_price_date, app_ns) = parse_params()
+    (environment, ticker_file_name, output_size, month, year, current_price_date, app_ns) = parse_params()
 
     log.info("Parameters:")
     log.info("Environment: %s" % environment)
     log.info("Ticker File: %s" % ticker_file_name)
-    log.info("portfolio size: %d" % portfolio_size)
-    log.info("month: %d" % month)
-    log.info("year: %d" % year)
-    log.info("current price date: %s" % datetime.strftime(current_price_date, '%Y/%m/%d'))
+    log.info("Output Size: %d" % output_size)
+    log.info("Analysis Month: %d" % month)
+    log.info("Analysis Year: %d" % year)    
     
-    
-    if (environment == "test"):
+    if (environment == "TEST"):
         log.info("reading ticker file from local filesystem")
         ticker_list = TickerFile.from_local_file(constants.ticker_data_dir, ticker_file_name).ticker_list
     else:
@@ -115,28 +118,31 @@ try:
         ticker_list = TickerFile.from_s3_bucket(ticker_file_name, app_ns).ticker_list
     
 
-    strategy = PriceDispersionStrategy(ticker_list, year, month, portfolio_size)
+    strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
     
-    log.info("Performing Ranking of securities")
-    portfolio = strategy.generate_portfolio()
-    portfolio_dataframe = strategy.portfolio_dataframe
+    log.info("Performing Recommendation Algorithm")
+    recommendation_set = strategy.generate_recommendation()
+    recommendation_dataframe = strategy.recommendation_dataframe
     raw_dataframe = strategy.raw_dataframe
 
-    log.info("Pricing securies")
+    log.info("Pricing securities")
     raw_dataframe = calculator.mark_to_market(strategy.raw_dataframe, current_price_date)
-    portfolio_dataframe = calculator.mark_to_market(strategy.portfolio_dataframe, current_price_date)
+    recommendation_dataframe = calculator.mark_to_market(strategy.recommendation_dataframe, current_price_date)
 
     log.info("")
-    log.info("Recommended Portfolio")
-    log.info(util.format_dict(portfolio.to_dict()))
+    log.info("Recommended Securities")
+    log.info(util.format_dict(recommendation_set.to_dict()))
     log.info("")
 
-    log.info("Recommended Portfolio Return: %.2f%%" % (portfolio_dataframe['actual_return'].mean()*100))
+    log.info("Recommended Securities Return: %.2f%%" % (recommendation_dataframe['actual_return'].mean()*100))
     log.info("Average Return: %.2f%%" % (raw_dataframe['actual_return'].mean()*100))
     log.info("")
     log.info("Analysis Period - %d/%d, Actual Returns as of: %s" % (month, year, datetime.strftime(current_price_date, '%Y/%m/%d')))
 
     print(raw_dataframe[['analysis_period', 'ticker', 'dispersion_stdev_pct', 'analyst_expected_return', 'actual_return', 'decile']].to_string(index=False))
+
+    if environment == "production":
+        recommendation_set.save_to_s3(app_ns)
 
 except Exception as e:
     log.error("Could run script, because: %s" % (str(e)))
