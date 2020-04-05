@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid 
 import pytz
 import dateutil.parser as parser
@@ -170,8 +170,33 @@ class SecurityRecommendationSet():
         s3_data_bucket_name = aws_service_wrapper.cf_read_export_value(constants.s3_data_bucket_export_name(app_ns))
         recommendation_set_object_name = "%s/%s" % (constants.s3_recommendation_set_folder_prefix, constants.s3_recommendation_set_object_name)
 
-        log.info("Uploading Security Recommendation Set to S3")
-
+        log.info("Uploading Security Recommendation Set to S3: s3:\\%s\%s" % (s3_data_bucket_name, recommendation_set_object_name))
         aws_service_wrapper.s3_upload_ascii_string(util.format_dict(self.to_dict()), s3_data_bucket_name, recommendation_set_object_name)
         
+
+    def send_sns_notification(self, app_ns : str):
+        '''
+            Sends an SNS notification indicating that a new recommendation has been generated
+
+            Parameters
+            ----------
+            app_ns : str
+                The application namespace supplied to the command line
+                used to identify the appropriate CloudFormation exports
+        '''
+
+        recommnedation_month = self.analysis_end_date + timedelta(days=1)
+
+        formatted_ticker_message = ""
+        for ticker in self.security_set.keys():
+            formatted_ticker_message += "Ticker Symbol: %s\n" % ticker
     
+        sns_topic_arn = aws_service_wrapper.cf_read_export_value(constants.sns_app_notifications_topic_arn(app_ns))
+        subject = "New Stock Recommendation Available"
+        message = "A New Stock Recommendation is available for the month of %s\n" % recommnedation_month.strftime("%B")
+        message += "\n\n"
+        message += formatted_ticker_message
+
+        log.info("Publishing notification to SNS topic: %s" % sns_topic_arn)
+        aws_service_wrapper.sns_publish_notification(sns_topic_arn, subject, message)
+

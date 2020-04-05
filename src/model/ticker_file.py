@@ -77,16 +77,8 @@ class TickerFile():
         s3_object_path = "%s/%s" % (constants.s3_ticker_file_folder_prefix, ticker_object_name)
         destination_path = "%s/%s" % (constants.app_data_dir, ticker_object_name)
 
-        filter_list = constants.app_cf_stack_names
-
         log.debug("Reading S3 Data Bucket location from CloudFormation Exports")
-        app_cf_exports = aws_service_wrapper.cf_list_exports(filter_list)
-        s3_data_export_name = constants.s3_data_bucket_export_name(app_ns)
-
-        try:    
-            s3_data_bucket_name = app_cf_exports[s3_data_export_name]
-        except Exception:
-            raise ValidationError("%s could not be found in clouformation exports." % s3_data_export_name, None)
+        s3_data_bucket_name = aws_service_wrapper.cf_read_export_value(constants.s3_data_bucket_export_name(app_ns))
 
         util.create_dir(constants.app_data_dir)
         log.debug("Downloading s3://%s --> %s" % (s3_object_path, destination_path))

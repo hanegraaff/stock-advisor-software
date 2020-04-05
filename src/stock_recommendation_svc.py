@@ -141,8 +141,9 @@ try:
 
     print(raw_dataframe[['analysis_period', 'ticker', 'dispersion_stdev_pct', 'analyst_expected_return', 'actual_return', 'decile']].to_string(index=False))
 
-    if environment == "production":
+    if environment == "PRODUCTION":
         recommendation_set.save_to_s3(app_ns)
+        recommendation_set.send_sns_notification(app_ns)
 
 except Exception as e:
     log.error("Could run script, because: %s" % (str(e)))

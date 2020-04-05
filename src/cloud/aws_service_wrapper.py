@@ -17,6 +17,7 @@ This module wraps the boto SDK an offers the following value add to the applicat
 #Global clients available to this module
 cf_client = boto3.client('cloudformation')
 s3_client = boto3.client('s3')
+sns_client = boto3.client('sns')
 
 # A simple in memory cached used to reduce roundtrips to AWS
 aws_response_cache = {}
@@ -131,3 +132,16 @@ def s3_upload_ascii_string(object_contents : str, s3_bucket_name : str, s3_objec
         )
     except Exception as e:
         raise AWSError("Could not upload String to s3://%s/%s" % (s3_bucket_name, s3_object_name), e)
+
+def sns_publish_notification(topic_arn : str, subject : str, message : str):
+    '''
+        Publishes a simple SNS message
+    '''
+    try:
+        sns_client.publish(
+            TopicArn=topic_arn,
+            Message=message,
+            Subject=subject
+        )
+    except Exception as e:
+        raise AWSError("Cannot publish message to SNS topic: %s" % topic_arn, e)

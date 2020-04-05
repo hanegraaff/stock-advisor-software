@@ -115,3 +115,9 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                 aws_service_wrapper.s3_upload_ascii_string("some string to upload", "s3_bucket_name", "s3_object_name")
 
 
+    def test_sns_publish_notification_with_boto_exception(self):
+        with patch.object(aws_service_wrapper.sns_client, 'publish', \
+                    side_effect=botocore.exceptions.BotoCoreError()):
+
+            with self.assertRaises(AWSError):
+                aws_service_wrapper.sns_publish_notification("topic_arn", "subject", "message")
