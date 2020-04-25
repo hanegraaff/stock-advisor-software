@@ -3,7 +3,7 @@
 
 This repo is part of the Stock Advisor project found here:
 
-https://github.com/hanegraaff/stock-advisor-main-project
+https://github.com/hanegraaff/stock-advisor-infrastructure
 
 This project covers the application software that constitutes the Stock Advisor System, namely the Securities Recommendation Service and the Portfolio Manager.
 
