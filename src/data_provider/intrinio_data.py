@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
+
 import intrinio_sdk
 import atexit
 from intrinio_sdk.rest import ApiException

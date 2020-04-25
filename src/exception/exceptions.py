@@ -66,6 +66,13 @@ class AWSError(BaseError):
     """
     def __print_cause__(self):
         return "AWS Error: " + super().__print_cause__()
+
+    def resource_not_found(self):
+        '''
+            Returns true if the exception was caused by a resource that
+            was not found.
+        '''
+        return "(404)" in str(self.cause) and "NOT FOUND" in str(self.cause).upper()
     
 
     

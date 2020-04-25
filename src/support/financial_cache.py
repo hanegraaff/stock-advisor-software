@@ -78,4 +78,4 @@ def shutdownCache():
     cache.diskCache.close()
 
 
-cache = FinancialCache(constants.financial_data_dir)
+cache = FinancialCache(constants.FINANCIAL_DATA_DIR)

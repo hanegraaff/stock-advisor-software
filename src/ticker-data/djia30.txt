@@ -23,7 +23,6 @@ PFE
 PG
 TRV
 UNH
-UTX
 V
 VZ
 WMT

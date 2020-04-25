@@ -101,7 +101,7 @@ def backtest(year : int, month : int):
 
 try:
 
-    ticker_list = TickerFile.from_local_file(constants.ticker_data_dir, ticker_file_name).ticker_list
+    ticker_list = TickerFile.from_local_file(constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
 
     backtest(2019, 5)
     backtest(2019, 6)
@@ -128,10 +128,7 @@ try:
     backtest_summary['sel_tot_2M'].append(backtest_dataframe['sel_ret_2M'].sum())
     backtest_summary['avg_tot_3M'].append(backtest_dataframe['avg_ret_3M'].sum())
     backtest_summary['sel_tot_3M'].append(backtest_dataframe['sel_ret_3M'].sum())
-    backtest_summary['avg_tot_4M'].append(backtest_dataframe['avg_ret_4M'].sum())
-    backtest_summary['sel_tot_4M'].append(backtest_dataframe['sel_ret_4M'].sum())
-    backtest_summary['avg_tot_5M'].append(backtest_dataframe['avg_ret_5M'].sum())
-    backtest_summary['sel_tot_5M'].append(backtest_dataframe['sel_ret_5M'].sum())
+
 
     backtest_summary_dataframe = pd.DataFrame(backtest_summary)
     print(backtest_summary_dataframe.to_string(index=False)) 

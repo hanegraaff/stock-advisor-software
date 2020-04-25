@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
+
 import boto3
 from exception.exceptions import ValidationError, AWSError
 from support import util, constants
@@ -14,10 +17,14 @@ This module wraps the boto SDK an offers the following value add to the applicat
     3) Provide filtering options that are meaningful to the application
 """
 
-#Global clients available to this module
-cf_client = boto3.client('cloudformation')
-s3_client = boto3.client('s3')
-sns_client = boto3.client('sns')
+#Global clients available to this module]
+try:
+    cf_client = boto3.client('cloudformation')
+    s3_client = boto3.client('s3')
+    sns_client = boto3.client('sns')
+except Exception as e:
+    log.fatal("Could not connect to AWS, because: %s" % str(e))
+    exit(-1)
 
 # A simple in memory cached used to reduce roundtrips to AWS
 aws_response_cache = {}
@@ -89,7 +96,7 @@ def cf_read_export_value(export_name : str):
         Helper function to read the value of a specific CloudFormation export
         given the supplied export name
     '''
-    filter_list = constants.app_cf_stack_names
+    filter_list = constants.APP_CF_STACK_NAMES
 
     app_cf_exports = cf_list_exports(filter_list)
     try:    
@@ -97,7 +104,6 @@ def cf_read_export_value(export_name : str):
     except Exception:
         raise ValidationError("%s could not be found in clouformation exports." % export_name, None)
     
-
 
 def s3_download_object(bucket_name : str, object_name : str, dest_path : str):
     '''
@@ -108,6 +114,7 @@ def s3_download_object(bucket_name : str, object_name : str, dest_path : str):
         s3_client.download_file(bucket_name, object_name, dest_path)
     except Exception as e:
         raise AWSError("Could not download s3://%s/%s --> %s" % (bucket_name, object_name, dest_path), e)
+
 
 
 def s3_upload_object(source_path : str, bucket_name : str, object_name : str):

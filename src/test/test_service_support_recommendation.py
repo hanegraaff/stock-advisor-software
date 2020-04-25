@@ -1,9 +1,8 @@
 import unittest
 from unittest.mock import patch
 from datetime import datetime
-from exception.exceptions import ValidationError, FileSystemError, AWSError
+from exception.exceptions import ValidationError
 from service_support import recommendation_svc
-from cloud import aws_service_wrapper
 from support import constants
 
 class TestServiceSupportRecommendation(unittest.TestCase):

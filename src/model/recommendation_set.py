@@ -1,178 +1,137 @@
 from datetime import datetime, timedelta
 import uuid 
 import pytz
+import json
 import dateutil.parser as parser
 from exception.exceptions import ValidationError
 from cloud import aws_service_wrapper
 from support import constants, util
+from model.base_model import BaseModel
 import logging
 
 log = logging.getLogger()
 
-class SecurityRecommendationSet():
+class SecurityRecommendationSet(BaseModel):
     """
         A data structure representing a set of recommendations generated
         by a selection strategy
-
-        It can be serialized into a json document that looks like this:
-        {
-            "set_id": uuid (str),
-            "creation_date": ISO8601 Date - UTC Timezone,
-            "analysis_start_date": ISO8601 Date - No Time component,
-            "analysis_end_date": ISO8601 Date - No Time component,
-            "price_date": ISO8601 Date - UTC Timezone,
-            "strategy_name": str,
-            "security_type": str
-            "security_set": {
-                "str": float,
-                "str": float,
-                "str": float
-            }
-        }
-
-        Attributes: 
-            set_id: str
-                A uniquely generated ID for this set.
-            creation_date : str
-                Date and time this set was created. (UTC format).
-            analysis_start_date : str
-                The start date of the financial data used for the analysis (No time component).  
-            analysis_end_date : str
-                The end date of the financial data used for the analysis (No time component).
-            price_date : str
-                The current price date used price set of securities. (UTC format).
-            strategy_name : str
-                Name of the strategy used to generate this set.
-            security_type
-                Types of securities included in this set, e.g. "US Equities"
-            security_set
-                The set of securities. Represented as a map of {ticker -> current price}
     """
 
-    def __init__(self, creation_date : datetime, analysis_start_date : datetime,
-            analysis_end_date : datetime, price_date : datetime,
-            strategy_name : str, security_type : str, security_set : dict):
-        '''
-            Initializes This class by supplying paraeters directly to it.
-        '''
+    schema = {
+        "type": "object",
+        "required": [
+            "set_id", "creation_date", "analysis_start_date", "analysis_end_date",
+            "price_date", "strategy_name", "security_type", "securities_set"
+        ],
+        "properties" : {
+            "set_id" : {"type" : "string"},
+            "creation_date" : {
+                "type" : "string",
+                "format" : "date-time"
+            },
+            "analysis_start_date" : {
+                "type" : "string",
+                "format" : "date-time"
+            },
+            "analysis_end_date" : {
+                "type" : "string",
+                "format" : "date-time"
+            },
+            "price_date" : {
+                "type" : "string",
+                "format" : "date-time"
+            },
+            "strategy_name" : {
+                "type" : "string",
+                "minLength": 1
+            },
+            "security_type" : {
+                "type" : "string",
+                "minLength" : 1
+            },
+            "securities_set" : {
+                "type" : "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "required": [
+                       "ticker_symbol", "price"
+                    ],
+                    "properties" : {
+                        "ticker_symbol": {"type": "string"},
+                        "price" : {"type" : "number"}
+                    }
+                }
+            }
+        }   
+    }
 
-        def validate(*argv):
-            '''
-                Validates several paramters in one shot.
-                Check wether params is not null and not empty
-            '''
-            isValid = True
-            for arg in argv:  
-                if arg == None or (isinstance(arg, (dict, list, str)) and len(arg) == 0):
-                    isValid = False
+    model_s3_folder_prefix = constants.S3_RECOMMENDATION_SET_FOLDER_PREFIX
+    model_s3_object_name = constants.S3_RECOMMENDATION_SET_OBJECT_NAME
 
-            if isValid == False:
-                raise ValidationError("One or more parameters is either null or empty: %s" % str(argv), None)
-        
-        
-        validate(creation_date, 
-                    analysis_start_date, analysis_end_date,
-                    price_date, strategy_name, security_type, 
-                    security_set
-        )
-
-        if not isinstance(security_set, dict):
-            raise ValidationError("Security Set parameter is not a dictionary", None)
-        
-
-        self.set_id = str(uuid.uuid1())
-        self.creation_date = creation_date
-        self.analysis_start_date = analysis_start_date
-        self.analysis_end_date = analysis_end_date
-        self.price_date = price_date
-        self.strategy_name = strategy_name
-        self.security_type = security_type
-        self.security_set = security_set
+    model_name = "Security Recommendation Set"
 
 
-    @classmethod
-    def from_dict(cls, recommendation_dict : dict):
-        '''
-            Initializes the class from a dictionary or raises a ValidationError
-            
-            Date objects are kept in UTC timezone. Clients using this data structure
-            are responsible for the localization of time
-
-            Paramters
-            ---------
-            recommendation_dict : dict A dictionary representation of the portfolio
-
-            Returns
-            ---------
-            A SecurityRecommendationSet instance matching the dictionary
-
-            Raises
-            ---------
-            ValidationError in case the dictionary is invalid 
-        '''
-        try:
-            set_id = recommendation_dict['set_id']
-            creation_date = parser.parse(recommendation_dict['creation_date'])
-            analysis_start_date = parser.parse(recommendation_dict['analysis_start_date'])
-            analysis_end_date = parser.parse(recommendation_dict['analysis_end_date'])
-            price_date = parser.parse(recommendation_dict['price_date'])
-            strategy_name = recommendation_dict['strategy_name']
-            security_type = recommendation_dict['security_type']
-            security_set = recommendation_dict['security_set']
-            
-            p = cls(creation_date, analysis_start_date, analysis_end_date, price_date,
-                    strategy_name, security_type, security_set
-            )
-
-            p.set_id = set_id
-
-            return p
-
-        except Exception as e:
-            raise ValidationError("Could not initialize Security Recommendation Set from dictionary", e)
-
-    @classmethod
-    def from_s3(cls):
-        '''
-            loads the recommendation set from S3. Implementation is TBD
-        '''
+    def __init__(self):
         pass
 
-    def to_dict(self):
-        """
-            serialized this object and returns it as a dictionary.
 
-            Note that creation time and Price Date are automatically converted to UTC
-        """
-
-        return {
-            "set_id": self.set_id,
-            "creation_date": self.creation_date.astimezone(pytz.UTC).isoformat(),
-            "analysis_start_date": self.analysis_start_date.isoformat(),
-            "analysis_end_date": self.analysis_end_date.isoformat(),
-            "price_date": self.price_date.astimezone(pytz.UTC).isoformat(),
-            "strategy_name": self.strategy_name,
-            "security_type": self.security_type,
-            "security_set": self.security_set
-        }
-
-    def save_to_s3(self, app_ns : str):
+    @classmethod
+    def from_parameters(cls, creation_date : datetime, analysis_start_date : datetime,
+            analysis_end_date : datetime, price_date : datetime,
+            strategy_name : str, security_type : str, securities_set : dict):
         '''
-            Uploads the Recommendation Set to S3
+            Initializes This class by supplying all required parameters.
 
-            Parameters
-            ----------
-            app_ns : str
-                The application namespace supplied to the command line
-                used to identify the appropriate CloudFormation exports
+            The "securities_set" is a ticker->price dictionary. E.g.
+
+            {
+                'AAPL': 123.45,
+                'XO' : 234.56,
+                ...
+            }
         '''
-    
-        s3_data_bucket_name = aws_service_wrapper.cf_read_export_value(constants.s3_data_bucket_export_name(app_ns))
-        recommendation_set_object_name = "%s/%s" % (constants.s3_recommendation_set_folder_prefix, constants.s3_recommendation_set_object_name)
 
-        log.info("Uploading Security Recommendation Set to S3: s3:\\%s\%s" % (s3_data_bucket_name, recommendation_set_object_name))
-        aws_service_wrapper.s3_upload_ascii_string(util.format_dict(self.to_dict()), s3_data_bucket_name, recommendation_set_object_name)
+        if (strategy_name == None or strategy_name == ""  or security_type == None or
+            security_type == "" or securities_set == None or len(securities_set) == 0):
+            raise ValidationError("Could not initialize Portfolio objects from parameters", None)
+
+        try:
+            cls.model = {
+                "set_id": str(uuid.uuid1()),
+                "creation_date": util.date_to_iso_utc_string(creation_date),
+                "analysis_start_date" : util.date_to_iso_string(analysis_start_date),
+                "analysis_end_date" : util.date_to_iso_string(analysis_end_date),
+                "price_date": util.date_to_iso_string(price_date),
+                "strategy_name": strategy_name,
+                "security_type": security_type,
+                "securities_set": []
+            }
+
+            for ticker in securities_set.keys():
+                cls.model['securities_set'].append({
+                    "ticker_symbol": ticker,
+                    "price": securities_set[ticker]
+                })
+        except Exception as e:
+            raise ValidationError("Could not initialize Portfolio objects from parameters", e)
+
         
+        return cls.from_dict(cls.model)
+
+    
+    def is_current(self):
+        """
+            Returns True if this recommendation set is still current.
+
+            A set is current as long as the analysis end date falls in the
+            previous month relative to the calendar date
+        """
+        valid_until = parser.parse(self.model['analysis_end_date']) + timedelta(days=1)
+        current_month = datetime.now().month
+
+        return valid_until.month == current_month
+           
 
     def send_sns_notification(self, app_ns : str):
         '''
@@ -185,11 +144,11 @@ class SecurityRecommendationSet():
                 used to identify the appropriate CloudFormation exports
         '''
 
-        recommnedation_month = self.analysis_end_date + timedelta(days=1)
+        recommnedation_month = parser.parse(self.model['analysis_end_date']) + timedelta(days=1)
 
         formatted_ticker_message = ""
-        for ticker in self.security_set.keys():
-            formatted_ticker_message += "Ticker Symbol: %s\n" % ticker
+        for security in self.model['securities_set']:
+            formatted_ticker_message += "Ticker Symbol: %s\n" % security['ticker_symbol']
     
         sns_topic_arn = aws_service_wrapper.cf_read_export_value(constants.sns_app_notifications_topic_arn(app_ns))
         subject = "New Stock Recommendation Available"
@@ -197,6 +156,6 @@ class SecurityRecommendationSet():
         message += "\n\n"
         message += formatted_ticker_message
 
-        log.info("Publishing notification to SNS topic: %s" % sns_topic_arn)
+        log.info("Publishing Recommendation set to SNS topic: %s" % sns_topic_arn)
         aws_service_wrapper.sns_publish_notification(sns_topic_arn, subject, message)
 

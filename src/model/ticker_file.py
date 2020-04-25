@@ -74,13 +74,13 @@ class TickerFile():
                 CloudFormation exports
         '''
 
-        s3_object_path = "%s/%s" % (constants.s3_ticker_file_folder_prefix, ticker_object_name)
-        destination_path = "%s/%s" % (constants.app_data_dir, ticker_object_name)
+        s3_object_path = "%s/%s" % (constants.S3_TICKER_FILE_FOLDER_PREFIX, ticker_object_name)
+        destination_path = "%s/%s" % (constants.APP_DATA_DIR, ticker_object_name)
 
         log.debug("Reading S3 Data Bucket location from CloudFormation Exports")
         s3_data_bucket_name = aws_service_wrapper.cf_read_export_value(constants.s3_data_bucket_export_name(app_ns))
 
-        util.create_dir(constants.app_data_dir)
+        util.create_dir(constants.APP_DATA_DIR)
         log.debug("Downloading s3://%s --> %s" % (s3_object_path, destination_path))
         
         try:
@@ -90,20 +90,20 @@ class TickerFile():
                 log.debug("File not found in S3. Looking for local alternatives")
 
                 # Attempt to upload a local copy of the file if it exists
-                local_ticker_path  = '%s/%s' % (constants.ticker_data_dir, ticker_object_name)
+                local_ticker_path  = '%s/%s' % (constants.TICKER_DATA_DIR, ticker_object_name)
 
                 if os.path.isfile(local_ticker_path):
                     log.debug("Attempting to upload %s --> s3://%s/%s" % (local_ticker_path, s3_data_bucket_name, s3_object_path))
                     aws_service_wrapper.s3_upload_object(local_ticker_path, s3_data_bucket_name, s3_object_path)
 
-                    return cls.from_local_file(constants.ticker_data_dir, ticker_object_name)
+                    return cls.from_local_file(constants.TICKER_DATA_DIR, ticker_object_name)
                 else:
                     log.debug("No local alternatives found")
                     raise awe
             else:
                 raise awe
 
-        return cls.from_local_file(constants.app_data_dir, ticker_object_name)
+        return cls.from_local_file(constants.APP_DATA_DIR, ticker_object_name)
     
 
     

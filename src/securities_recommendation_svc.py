@@ -1,4 +1,4 @@
-"""stock_recommendation_svc.py
+"""securities_recommendation_svc.py
 
 """
 import argparse
@@ -11,9 +11,9 @@ from strategies import calculator
 from service_support import recommendation_svc
 from model.ticker_file import TickerFile
 from support import constants
+from support import logging_definition
 
 
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] - %(message)s')
 log = logging.getLogger()
 
 logging.getLogger('boto3').setLevel(logging.WARN)
@@ -112,7 +112,7 @@ try:
     
     if (environment == "TEST"):
         log.info("reading ticker file from local filesystem")
-        ticker_list = TickerFile.from_local_file(constants.ticker_data_dir, ticker_file_name).ticker_list
+        ticker_list = TickerFile.from_local_file(constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
     else:
         log.info("reading ticker file from local s3 bucket")
         ticker_list = TickerFile.from_s3_bucket(ticker_file_name, app_ns).ticker_list

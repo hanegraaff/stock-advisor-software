@@ -1,8 +1,10 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import botocore
 from unittest.mock import patch
-from exception.exceptions import ValidationError
+from exception.exceptions import ValidationError, AWSError
 from model.recommendation_set import SecurityRecommendationSet
+from cloud import aws_service_wrapper
 
 class TestSecurityRecommendationSet(unittest.TestCase):
     '''
@@ -16,128 +18,79 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         '''
 
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(None, datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(None, datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), None, datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), None, datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), None, datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), None, datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), None, 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), None, 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), datetime.now(), None, 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), None, 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', None, {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', None, {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', None)
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', None)
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', "Not A Dictionary")
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', "Not A Dictionary")
 
     def test_valid_parameters(self):
-        SecurityRecommendationSet(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+        SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
 
-    def test_invalid_dict(self):
+
+    def test_valid_dict(self):
+        d = {
+            "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
+            "creation_date": "2020-09-01T04:56:57.612693+00:00",
+            "analysis_start_date": "2019-08-01T04:00:00+00:00",
+            "analysis_end_date": "2019-08-31T04:00:00+00:00",
+            "price_date": "2019-09-01T02:34:12.876012+00:00",
+            "strategy_name": "PRICE_DISPERSION",
+            "security_type": "US Equities",
+            "securities_set": [{
+                "ticker_symbol" : "GE",
+                "price": 123.45
+            },{
+                "ticker_symbol" : "INTC",
+                "price": 123.45
+            },{
+                "ticker_symbol" : "AAPL",
+                "price": 123.45
+            }]
+        }
+
+        SecurityRecommendationSet.from_dict(d)
+
+    def test_invalid_dict_1(self):
         with self.assertRaises(ValidationError):
             SecurityRecommendationSet.from_dict({
                 'x' : 'y'
             })
 
-    def test_valid_dict(self):
+    def test_invalid_dict_2(self):
         d = {
             "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
-            "creation_date": "2020-03-01T04:56:57.612693+00:00",
-            "analysis_start_date": "2019-08-01T00:00:00",
-            "analysis_end_date": "2019-08-31T00:00:00",
+            "creation_date": "2020-09-01T04:56:57.612693+00:00",
+            "analysis_start_date": "2019-08-01T04:00:00+00:00",
             "price_date": "2019-09-01T02:34:12.876012+00:00",
             "strategy_name": "PRICE_DISPERSION",
-            "security_type": "US Equities",
-            "security_set": {
-                "GE": 123.45,
-                "INTC": 123.45,
-                "AAPL": 123.45
-            }
+            "security_type": "US Equities"
         }
 
-        s = SecurityRecommendationSet.from_dict(d)
-
-        self.assertEqual(s.set_id, d['set_id'])
-        self.assertEqual(s.creation_date.year, 2020)
-        self.assertEqual(s.creation_date.month, 3)
-        self.assertEqual(s.creation_date.day, 1)
-        self.assertEqual(s.creation_date.hour, 4)
-        self.assertEqual(s.creation_date.minute, 56)
-        self.assertEqual(s.creation_date.second, 57)
-
-        self.assertEqual(s.analysis_start_date.year, 2019)
-        self.assertEqual(s.analysis_start_date.month, 8)
-        self.assertEqual(s.analysis_start_date.day, 1)
-        self.assertEqual(s.analysis_start_date.hour, 0)
-        self.assertEqual(s.analysis_start_date.minute, 0)
-        self.assertEqual(s.analysis_start_date.second, 0)
-
-        self.assertEqual(s.analysis_end_date.year, 2019)
-        self.assertEqual(s.analysis_end_date.month, 8)
-        self.assertEqual(s.analysis_end_date.day, 31)
-        self.assertEqual(s.analysis_end_date.hour, 0)
-        self.assertEqual(s.analysis_end_date.minute, 0)
-        self.assertEqual(s.analysis_end_date.second, 0)
-
-        self.assertEqual(s.price_date.year, 2019)
-        self.assertEqual(s.price_date.month, 9)
-        self.assertEqual(s.price_date.day, 1)
-        self.assertEqual(s.price_date.hour, 2)
-        self.assertEqual(s.price_date.minute, 34)
-        self.assertEqual(s.price_date.second, 12)
-
-        self.assertEqual(s.strategy_name, d['strategy_name'])
-        self.assertEqual(s.security_type, d['security_type'])
-        self.assertDictEqual(s.security_set, {
-                "GE": 123.45,
-                "INTC": 123.45,
-                "AAPL": 123.45
-            })
-
-    def test_valid_analysis_date_yyyy_mm_dd(self):
-        d = {
-            "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
-            "creation_date": "2020-03-01T04:56:57.612693+00:00",
-            "analysis_start_date": "2019-08-01",
-            "analysis_end_date": "2019-08-31",
-            "price_date": "2019-09-01T02:34:12.876012+00:00",
-            "strategy_name": "PRICE_DISPERSION",
-            "security_type": "US Equities",
-            "security_set": {
-                "GE": 123.45,
-                "INTC": 123.45,
-                "AAPL": 123.45
-            }
-        }
-
-        s = SecurityRecommendationSet.from_dict(d)
-
-        self.assertEqual(s.analysis_start_date.year, 2019)
-        self.assertEqual(s.analysis_start_date.month, 8)
-        self.assertEqual(s.analysis_start_date.day, 1)
-        self.assertEqual(s.analysis_start_date.hour, 0)
-        self.assertEqual(s.analysis_start_date.minute, 0)
-        self.assertEqual(s.analysis_start_date.second, 0)
-
-        self.assertEqual(s.analysis_end_date.year, 2019)
-        self.assertEqual(s.analysis_end_date.month, 8)
-        self.assertEqual(s.analysis_end_date.day, 31)
-        self.assertEqual(s.analysis_end_date.hour, 0)
-        self.assertEqual(s.analysis_end_date.minute, 0)
-        self.assertEqual(s.analysis_end_date.second, 0)
-
-        # now test that data date can be converted back to string
-        d = s.to_dict()
-        self.assertEqual(d['analysis_start_date'], "2019-08-01T00:00:00")
-        self.assertEqual(d['analysis_end_date'], "2019-08-31T00:00:00")
+        with self.assertRaises(ValidationError):
+            SecurityRecommendationSet.from_dict(d)
 
 
-    def test_valid_dictionary(self):
-        p = SecurityRecommendationSet(
+    def test_is_current_false(self):
+        '''
+            Test that a recommendation set that is several months
+            old is reported as not current
+        '''
+
+        # Create a recommendation set from the past (2019/8)
+        p = SecurityRecommendationSet.from_parameters(
             datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc), 
             datetime(2019, 8, 1, 0, 0, 0), 
             datetime(2019, 8, 31, 0, 0, 0), 
@@ -151,19 +104,49 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }
         )
 
-        p.set_id = "xxx"
-        self.assertDictEqual(p.to_dict(), {
-            "set_id": "xxx",
-            "creation_date": "2020-03-01T04:56:57+00:00",
-            "analysis_start_date": "2019-08-01T00:00:00",
-            "analysis_end_date": "2019-08-31T00:00:00",
-            "price_date": "2019-09-01T02:34:12+00:00",
-            "strategy_name": "PRICE_DISPERSION",
-            "security_type": "US Equities",
-            "security_set": {
+        self.assertFalse(p.is_current())
+
+
+    def test_is_current_true(self):
+        '''
+            Test that a recommendation from last month
+            relative to the current date is reported as current
+        '''
+        now = datetime.now()
+        last = now - timedelta(days=1)
+
+        analysis_date = datetime(now.year, last.month, 1, 0, 0, 0)
+
+        # Create a recommendation set from the past (2019/8)
+        p = SecurityRecommendationSet.from_parameters(
+            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc), 
+            analysis_date, 
+            analysis_date, 
+            datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc), 
+            "PRICE_DISPERSION",
+            "US Equities",
+            {
                 "GE": 123.45,
                 "INTC": 123.45,
                 "AAPL": 123.45
             }
-        })
+        )
+
+        self.assertTrue(p.is_current())
+
+
+
+    def test_send_sns_notification_with_boto_error(self):
+        with patch.object(aws_service_wrapper, 'cf_read_export_value', \
+            return_value="some_sns_arn"), \
+            patch.object(aws_service_wrapper, 'sns_publish_notification', \
+             side_effect=AWSError("test exception", None)):
+
+            with self.assertRaises(AWSError):
+                s = SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+
+                s.send_sns_notification("sa")
+
+                
+
 

@@ -2,25 +2,31 @@
     filesystem constants
 '''
 
-app_data_dir = "./app_data"
-ticker_data_dir = "./ticker-data"
-financial_data_dir = "./financial-data/"
+APP_DATA_DIR = "./app_data"
+TICKER_DATA_DIR = "./ticker-data"
+FINANCIAL_DATA_DIR = "./financial-data/"
+
+
+'''
+    Application constnts
+'''
 
 
 
 '''
     Cloud Infrastructure Constants
 '''
-app_cf_stack_names = ['app-infra-base', 'app-infra-compute']
+APP_CF_STACK_NAMES = ['app-infra-base', 'app-infra-compute']
 
 def s3_data_bucket_export_name(app_ns):
     return "%s-data-bucket-name" % app_ns
 
-s3_ticker_file_folder_prefix = "ticker-files"
-s3_recommendation_set_folder_prefix = "base-recommendations"
-s3_recommendation_set_object_name = "security-recommendation-set.json"
-s3_financial_cache_folder_prefix = "financial-cache"
-s3_stock_recommendation_folder_prefix = "stock-recommendation"
+S3_TICKER_FILE_FOLDER_PREFIX = "ticker-files"
+S3_RECOMMENDATION_SET_FOLDER_PREFIX = "base-recommendations"
+S3_RECOMMENDATION_SET_OBJECT_NAME = "security-recommendation-set.json"
+S3_PORTFOLIO_FOLDER_PREFIX = "portfolios"
+S3_PORTFOLIO_OBJECT_NAME = "current-portfolio.json"
+S3_FINANCIAL_CACHE_FOLDER_PREFIX = "financial-cache"
 
 def sns_app_notifications_topic_arn(app_ns):
     return "%s-app-notifications-topic-name" % app_ns

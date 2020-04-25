@@ -48,3 +48,25 @@ class TestExceptions(unittest.TestCase):
 
         # mac os and linux produce slightly different results
         self.assertTrue("Validation Error: Cannot do XYZ. Caused by: ('Some reason', Exception('Root Cause" in str(ve))
+
+
+    '''
+        AWS Tests (covers all exceptions)
+    '''
+    def test_aws_error(self):
+        
+        aws_exception = Exception("Some AWS Error")
+
+        aws = AWSError("Cannot do XYZ", aws_exception)
+
+        # mac os and linux produce slightly different results
+        self.assertFalse(aws.resource_not_found())
+
+    def test_aws_resource_not_found(self):
+    
+        aws_exception = Exception("An error occurred (404) when calling the HeadObject operation: Not Found")
+
+        aws = AWSError("Cannot do XYZ", aws_exception)
+
+        # mac os and linux produce slightly different results
+        self.assertTrue(aws.resource_not_found())

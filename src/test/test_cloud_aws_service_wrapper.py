@@ -25,7 +25,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                     side_effect=botocore.exceptions.BotoCoreError()):
 
             with self.assertRaises(AWSError):
-                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names)
+                aws_service_wrapper.cf_list_exports(constants.APP_CF_STACK_NAMES)
 
     def test_cf_list_exports_no_data(self):
         with patch.object(aws_service_wrapper.cf_client, 'list_exports', \
@@ -34,7 +34,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                     }):
 
             self.assertEqual(
-                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names),
+                aws_service_wrapper.cf_list_exports(constants.APP_CF_STACK_NAMES),
                 {}
             )
 
@@ -61,7 +61,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                         }):
 
             self.assertEqual(
-                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names),
+                aws_service_wrapper.cf_list_exports(constants.APP_CF_STACK_NAMES),
                 {
                     "export-name-1": "export-value-1"
                 }
@@ -78,7 +78,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                         }]
                     }):
                 
-                aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names)
+                aws_service_wrapper.cf_list_exports(constants.APP_CF_STACK_NAMES)
 
         self.assertEqual(len(aws_service_wrapper.aws_response_cache), 1)
 
@@ -94,7 +94,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
                     }):
 
             with self.assertRaises(AWSError):
-                    aws_service_wrapper.cf_list_exports(constants.app_cf_stack_names)
+                    aws_service_wrapper.cf_list_exports(constants.APP_CF_STACK_NAMES)
 
                     
     '''
@@ -106,6 +106,7 @@ class TestCloudAWSServiceWrapper(unittest.TestCase):
 
             with self.assertRaises(AWSError):
                 aws_service_wrapper.s3_download_object("bucket_name", "object_name", "./dest_path")
+
 
     def test_s3_upload_ascii_string_with_boto_exception(self):
         with patch.object(aws_service_wrapper.s3_client, 'put_object', \

@@ -9,10 +9,12 @@ from model.recommendation_set import SecurityRecommendationSet
 
 class PriceDispersionStrategy():
     """
-        An invenstment strategy based on analyst targer price agreement measured as
-        the price dispersion, as detailed in this paper:
+        An invenstment strategy based on analyst target price agreement measured as
+        the price dispersion, described in papers like these:
 
-        https://www8.gsb.columbia.edu/faculty-research/sites/faculty-research/files/FRANK%20ZHANG%20PAPER%20PSZ_20190913.pdf
+        /doc/Consensus-Analyst-Target-Prices.pdf
+        /doc/Dispersion-Analysts-Target-Prices-Stock-Returns.pdf
+        /doc/Predictive-Power-Analyst-Price-Target-Dispersion.pdf
 
         Specifically, given a list ticker symbols, it will return a recommendation
         that consists of securities with the lowest price dispersion (highest analyst agreement)
@@ -21,25 +23,34 @@ class PriceDispersionStrategy():
         The recommendation set is represented as a JSON document like this:
 
         {
-            "set_id": uuid (str),
-            "creation_date": ISO8601 Date - UTC Timezone,
-            "analysis_start_date": ISO8601 Date,
-            "analysis_end_date": ISO8601 Date,
-            "price_date": ISO8601 Date - UTC Timezone,
-            "strategy_name": str,
-            "security_type": str
-            "security_set": {
-                "str": float,
-                "str": float,
-                "str": float
-            }
+            "set_id": "bda2de4e-7ec6-11ea-86e7-acbc329ef75f",
+            "creation_date": "2020-04-15T03:11:03.841242+00:00",
+            "analysis_start_date": "2020-03-01T00:00:00-05:00",
+            "analysis_end_date": "2020-03-31T00:00:00-04:00",
+            "price_date": "2020-03-31T00:00:00-04:00",
+            "strategy_name": "PRICE_DISPERSION",
+            "security_type": "US Equities",
+            "securities_set": [
+                {
+                    "ticker_symbol": "BA",
+                    "price": 152.28
+                },
+                {
+                    "ticker_symbol": "XOM",
+                    "price": 37.5
+                },
+                {
+                    "ticker_symbol": "GE",
+                    "price": 7.89
+                }
+            ]
         }
     """
 
 
     STRATEGY_NAME = "PRICE_DISPERSION"
 
-    def __init__(self, ticker_list : list, data_year : int, data_month : int, portfolio_size : int):
+    def __init__(self, ticker_list : list, data_year : int, data_month : int, output_size : int):
         """
             Initializes the class with the ticker list, a year and a month.
 
@@ -52,9 +63,10 @@ class PriceDispersionStrategy():
             Parameters
             ------------
             ticker_list : list of tickers to be included in the analisys
+            ticker_source_name : The source of the ticker list. E.g. DOW30, or SP500
             year : analysis year
             month : analysis month
-            portfolio_size : number of recommended securities that will be returned
+            output_size : number of recommended securities that will be returned
                 by this strategy
 
         """
@@ -74,7 +86,7 @@ class PriceDispersionStrategy():
 
         self.ticker_list = ticker_list
 
-        self.portfolio_size = portfolio_size
+        self.output_size = output_size
         self.data_date = "%d-%d" % (data_year, data_month)
 
     def __load_financial_data__(self):
@@ -136,7 +148,7 @@ class PriceDispersionStrategy():
 
                 at_least_one = True
             except BaseError as be:
-                logging.debug("Could not read %s financial data, because: %s" % (ticker, str(be)))
+                logging.debug("%s will not be factored in recommendation, because: %s" % (ticker, str(be)))
             except Exception as e:
                 raise DataError("Could not read %s financial data" % (ticker), e)
 
@@ -169,7 +181,7 @@ class PriceDispersionStrategy():
         raw_dataframe['decile'] = pd.qcut(pricing_raw_data['dispersion_stdev_pct'], 10, labels=False, duplicates='drop')
         raw_dataframe =  raw_dataframe.sort_values(['decile', 'analyst_expected_return'], ascending = (False, False))
     
-        selected_portfolio = raw_dataframe.head(self.portfolio_size).drop(['decile', 'target_price_avg', 'dispersion_stdev_pct', 'analyst_expected_return'], axis=1)
+        selected_portfolio = raw_dataframe.head(self.output_size).drop(['decile', 'target_price_avg', 'dispersion_stdev_pct', 'analyst_expected_return'], axis=1)
 
         return (selected_portfolio, raw_dataframe)
 
@@ -193,7 +205,7 @@ class PriceDispersionStrategy():
         for row in self.recommendation_dataframe.itertuples(index=False):
             priced_securities[row.ticker] = row.analysis_price
 
-        sr = SecurityRecommendationSet(datetime.now(), self.analysis_start_date, self.analysis_end_date, self.analysis_end_date, 
+        sr = SecurityRecommendationSet.from_parameters(datetime.now(), self.analysis_start_date, self.analysis_end_date, self.analysis_end_date, 
             self.STRATEGY_NAME, "US Equities", priced_securities)
 
         return sr
