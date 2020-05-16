@@ -4,7 +4,8 @@ import botocore
 from unittest.mock import patch
 from exception.exceptions import ValidationError, AWSError
 from model.recommendation_set import SecurityRecommendationSet
-from cloud import aws_service_wrapper
+from connectors import aws_service_wrapper
+
 
 class TestSecurityRecommendationSet(unittest.TestCase):
     '''
@@ -12,33 +13,41 @@ class TestSecurityRecommendationSet(unittest.TestCase):
     '''
 
     def test_invalid_parameters(self):
-
         '''
             Combine these into a single test for brevity
         '''
 
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(None, datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(None, datetime.now(), datetime.now(
+            ), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), None, datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), None, datetime.now(
+            ), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), None, datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+            ), None, datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), None, 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+            ), datetime.now(), None, 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), None, 'US Equities', {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+            ), datetime.now(), datetime.now(), None, 'US Equities', {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', None, {'AAPL': 100})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+            ), datetime.now(), datetime.now(), 'STRATEGY_NAME', None, {'AAPL': 100})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', None)
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+            ), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', None)
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {})
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+            ), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {})
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', "Not A Dictionary")
+            SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(
+            ), datetime.now(), 'STRATEGY_NAME', 'US Equities', "Not A Dictionary")
 
     def test_valid_parameters(self):
-        SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
-
+        SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+        ), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
 
     def test_valid_dict(self):
         d = {
@@ -50,13 +59,13 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             "strategy_name": "PRICE_DISPERSION",
             "security_type": "US Equities",
             "securities_set": [{
-                "ticker_symbol" : "GE",
+                "ticker_symbol": "GE",
                 "price": 123.45
-            },{
-                "ticker_symbol" : "INTC",
+            }, {
+                "ticker_symbol": "INTC",
                 "price": 123.45
-            },{
-                "ticker_symbol" : "AAPL",
+            }, {
+                "ticker_symbol": "AAPL",
                 "price": 123.45
             }]
         }
@@ -66,7 +75,7 @@ class TestSecurityRecommendationSet(unittest.TestCase):
     def test_invalid_dict_1(self):
         with self.assertRaises(ValidationError):
             SecurityRecommendationSet.from_dict({
-                'x' : 'y'
+                'x': 'y'
             })
 
     def test_invalid_dict_2(self):
@@ -82,7 +91,6 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         with self.assertRaises(ValidationError):
             SecurityRecommendationSet.from_dict(d)
 
-
     def test_is_current_false(self):
         '''
             Test that a recommendation set that is several months
@@ -91,10 +99,10 @@ class TestSecurityRecommendationSet(unittest.TestCase):
 
         # Create a recommendation set from the past (2019/8)
         p = SecurityRecommendationSet.from_parameters(
-            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc), 
-            datetime(2019, 8, 1, 0, 0, 0), 
-            datetime(2019, 8, 31, 0, 0, 0), 
-            datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc), 
+            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
+            datetime(2019, 8, 1, 0, 0, 0),
+            datetime(2019, 8, 31, 0, 0, 0),
+            datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc),
             "PRICE_DISPERSION",
             "US Equities",
             {
@@ -105,7 +113,6 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         )
 
         self.assertFalse(p.is_current())
-
 
     def test_is_current_true(self):
         '''
@@ -119,10 +126,10 @@ class TestSecurityRecommendationSet(unittest.TestCase):
 
         # Create a recommendation set from the past (2019/8)
         p = SecurityRecommendationSet.from_parameters(
-            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc), 
-            analysis_date, 
-            analysis_date, 
-            datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc), 
+            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
+            analysis_date,
+            analysis_date,
+            datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc),
             "PRICE_DISPERSION",
             "US Equities",
             {
@@ -134,19 +141,14 @@ class TestSecurityRecommendationSet(unittest.TestCase):
 
         self.assertTrue(p.is_current())
 
-
-
     def test_send_sns_notification_with_boto_error(self):
-        with patch.object(aws_service_wrapper, 'cf_read_export_value', \
-            return_value="some_sns_arn"), \
-            patch.object(aws_service_wrapper, 'sns_publish_notification', \
-             side_effect=AWSError("test exception", None)):
+        with patch.object(aws_service_wrapper, 'cf_read_export_value',
+                          return_value="some_sns_arn"), \
+            patch.object(aws_service_wrapper, 'sns_publish_notification',
+                         side_effect=AWSError("test exception", None)):
 
             with self.assertRaises(AWSError):
-                s = SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
+                s = SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
+                ), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
 
                 s.send_sns_notification("sa")
-
-                
-
-

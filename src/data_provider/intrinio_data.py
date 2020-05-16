@@ -19,9 +19,9 @@ financial statements
 """
 
 try:
-  API_KEY = os.environ['INTRINIO_API_KEY']
+    API_KEY = os.environ['INTRINIO_API_KEY']
 except KeyError as ke:
-  raise ValidationError("INTRINIO_API_KEY was not set", None)
+    raise ValidationError("INTRINIO_API_KEY was not set", None)
 
 intrinio_sdk.ApiClient().configuration.api_key['api_key'] = API_KEY
 
@@ -31,82 +31,89 @@ company_api = intrinio_sdk.CompanyApi()
 security_api = intrinio_sdk.SecurityApi()
 
 
-
 INTRINIO_CACHE_PREFIX = 'intrinio'
 
 
-def get_target_price_std_dev(ticker : str, start_date : datetime, end_date : datetime):
+def get_target_price_std_dev(ticker: str, start_date: datetime, end_date: datetime):
     return _aggregate_by_year_month(
-        _get_company_historical_data(ticker, intrinio_util.date_to_string(start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_std_dev')
-    )
-
-def get_target_price_mean(ticker : str, start_date : datetime, end_date : datetime):
-    return _aggregate_by_year_month(
-        _get_company_historical_data(ticker, intrinio_util.date_to_string(start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_mean')
-    )
-
-def get_target_price_cnt(ticker : str, start_date : datetime, end_date : datetime):
-    return _aggregate_by_year_month(
-        _get_company_historical_data(ticker, intrinio_util.date_to_string(start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_cnt')
+        _get_company_historical_data(ticker, intrinio_util.date_to_string(
+            start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_std_dev')
     )
 
 
-def get_daily_stock_close_prices(ticker : str, start_date : datetime, end_date : datetime):
-      '''
-        Returns a list of historical daily stock prices given a ticker symbol and
-        a range of dates.  Currently only returns one page of 100 results
+def get_target_price_mean(ticker: str, start_date: datetime, end_date: datetime):
+    return _aggregate_by_year_month(
+        _get_company_historical_data(ticker, intrinio_util.date_to_string(
+            start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_mean')
+    )
 
-        Parameters
-        ----------
-        ticker : str
-          Ticker Symbol
-        start_date : object
-          The beginning price date as python date object
-        end_date : object
-          The end price date as python date object
 
-        Returns
-        -----------
-        a dictionary of date->price like this
-        {
-          '2019-10-01': 100,
-          '2019-10-02': 101,
-          '2019-10-03': 102,
-          '2019-10-04': 103,
-        }
-      '''
+def get_target_price_cnt(ticker: str, start_date: datetime, end_date: datetime):
+    return _aggregate_by_year_month(
+        _get_company_historical_data(ticker, intrinio_util.date_to_string(
+            start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_cnt')
+    )
 
-      start_date_str = intrinio_util.date_to_string(start_date)
-      end_date_str = intrinio_util.date_to_string(end_date)
 
-      price_dict = {}
+def get_daily_stock_close_prices(ticker: str, start_date: datetime, end_date: datetime):
+    '''
+      Returns a list of historical daily stock prices given a ticker symbol and
+      a range of dates.  Currently only returns one page of 100 results
 
-      cache_key = "%s-%s-%s-%s-%s" % (INTRINIO_CACHE_PREFIX, ticker, start_date_str, end_date_str, "closing-prices")
-      api_response = cache.read(cache_key)
+      Parameters
+      ----------
+      ticker : str
+        Ticker Symbol
+      start_date : object
+        The beginning price date as python date object
+      end_date : object
+        The end price date as python date object
 
-      if api_response == None:
+      Returns
+      -----------
+      a dictionary of date->price like this
+      {
+        '2019-10-01': 100,
+        '2019-10-02': 101,
+        '2019-10-03': 102,
+        '2019-10-04': 103,
+      }
+    '''
+
+    start_date_str = intrinio_util.date_to_string(start_date)
+    end_date_str = intrinio_util.date_to_string(end_date)
+
+    price_dict = {}
+
+    cache_key = "%s-%s-%s-%s-%s" % (INTRINIO_CACHE_PREFIX,
+                                    ticker, start_date_str, end_date_str, "closing-prices")
+    api_response = cache.read(cache_key)
+
+    if api_response is None:
         try:
-          api_response = security_api.get_security_stock_prices(ticker, start_date=start_date_str, end_date=end_date_str, frequency='daily', page_size=100)
-          cache.write(cache_key, api_response)
+            api_response = security_api.get_security_stock_prices(
+                ticker, start_date=start_date_str, end_date=end_date_str, frequency='daily', page_size=100)
+            cache.write(cache_key, api_response)
         except ApiException as ae:
-          raise DataError("API Error while reading price data from Intrinio Security API: ('%s', %s - %s)" %
-                          (ticker, start_date_str, end_date_str), ae)
+            raise DataError("API Error while reading price data from Intrinio Security API: ('%s', %s - %s)" %
+                            (ticker, start_date_str, end_date_str), ae)
         except Exception as e:
-          raise ValidationError("Unknown Error while reading price data from Intrinio Security API: ('%s', %s - %s)" %
-                          (ticker, start_date_str, end_date_str), e)
+            raise ValidationError("Unknown Error while reading price data from Intrinio Security API: ('%s', %s - %s)" %
+                                  (ticker, start_date_str, end_date_str), e)
 
-      price_list = api_response.stock_prices
+    price_list = api_response.stock_prices
 
-      if len(price_list) == 0:
+    if len(price_list) == 0:
         raise DataError("No prices returned from Intrinio Security API: ('%s', %s - %s)" %
-                    (ticker, start_date_str, end_date_str), None)
+                        (ticker, start_date_str, end_date_str), None)
 
-      for price in price_list:  
+    for price in price_list:
         price_dict[intrinio_util.date_to_string(price.date)] = price.close
 
-      return price_dict
+    return price_dict
 
-def get_latest_close_price(ticker, price_date : datetime, max_looback : int):
+
+def get_latest_close_price(ticker, price_date: datetime, max_looback: int):
     """
       Retrieves the most recent close price given a price_date and a lookback window
 
@@ -115,21 +122,22 @@ def get_latest_close_price(ticker, price_date : datetime, max_looback : int):
       a tuple of date, float with the latest price date and price value
     """
 
-    if max_looback not in range (1,10):
-      raise ValidationError("Invalid 'max_looback'. Allowed values are [1..10]", None)
+    if max_looback not in range(1, 10):
+        raise ValidationError(
+            "Invalid 'max_looback'. Allowed values are [1..10]", None)
 
     looback_date = price_date - timedelta(days=max_looback)
 
     price_dict = get_daily_stock_close_prices(ticker, looback_date, price_date)
 
-    price_date = sorted(list(price_dict.keys()), reverse=True)[0]    
-    
+    price_date = sorted(list(price_dict.keys()), reverse=True)[0]
+
     return (price_date, price_dict[price_date])
 
 
 def get_historical_revenue(ticker: str, year_from: int, year_to: int):
     '''
-      Returns a dictionary of year->"total revenue" for the supplied ticker and 
+      Returns a dictionary of year->"total revenue" for the supplied ticker and
       range of years.
 
       Returns
@@ -147,23 +155,24 @@ def get_historical_revenue(ticker: str, year_from: int, year_to: int):
     end_date = intrinio_util.get_year_date_range(year_to, 0)[1]
 
     return _aggregate_by_year(
-        _get_company_historical_data(ticker, start_date, end_date, 'totalrevenue')
+        _get_company_historical_data(
+            ticker, start_date, end_date, 'totalrevenue')
     )
 
 
 def get_historical_fcff(ticker: str, year_from: int, year_to: int):
     '''
-      Returns a dictionary of year->"fcff value" for the supplied ticker and 
+      Returns a dictionary of year->"fcff value" for the supplied ticker and
       range of years.
 
         This is the description from Intrinio documentation:
 
         Definition
-        Free cash flow for the firm (FCFF) is a measure of financial performance that 
-        expresses the net amount of cash that is generated for a firm after expenses, 
-        taxes and changes in net working capital and investments are deducted. 
-        FCFF is essentially a measurement of a company's profitability after all expenses 
-        and reinvestments. It's one of the many benchmarks used to compare and analyze 
+        Free cash flow for the firm (FCFF) is a measure of financial performance that
+        expresses the net amount of cash that is generated for a firm after expenses,
+        taxes and changes in net working capital and investments are deducted.
+        FCFF is essentially a measurement of a company's profitability after all expenses
+        and reinvestments. It's one of the many benchmarks used to compare and analyze
         financial health.
 
         Formula
@@ -184,9 +193,9 @@ def get_historical_fcff(ticker: str, year_from: int, year_to: int):
     start_date = intrinio_util.get_year_date_range(year_from, 0)[0]
     end_date = intrinio_util.get_year_date_range(year_to, 0)[1]
 
-
     return _aggregate_by_year(
-        _get_company_historical_data(ticker, start_date, end_date, 'freecashflow')
+        _get_company_historical_data(
+            ticker, start_date, end_date, 'freecashflow')
     )
 
 
@@ -278,7 +287,7 @@ def _transform_financial_stmt(std_financials_list: list, tag_filter_list: list):
 
     for financial in std_financials_list:
 
-        if (tag_filter_list == None or
+        if (tag_filter_list is None or
                 financial.data_tag.tag in tag_filter_list):
             results[financial.data_tag.tag] = financial.value
 
@@ -308,7 +317,7 @@ def _read_historical_financial_statement(ticker: str, statement_name: str, year_
       year_from : int
         Start year of financial statement list
       year_to : int
-        End year of the financial statement list 
+        End year of the financial statement list
       tag_filter_list : list
         List of data tags used to filter results. The name of each tag
         must match an expected one from the Intrinio API. If "None", then all
@@ -333,21 +342,22 @@ def _read_historical_financial_statement(ticker: str, statement_name: str, year_
     statement_type = 'FY'
 
     try:
-      for i in range(year_from, year_to + 1):
-          satement_name = ticker + "-" + \
-              statement_name + "-" + str(i) + "-" + statement_type
+        for i in range(year_from, year_to + 1):
+            satement_name = ticker + "-" + \
+                statement_name + "-" + str(i) + "-" + statement_type
 
-          cache_key = "%s-%s-%s-%s-%s-%d" % (INTRINIO_CACHE_PREFIX, "statement", ticker, statement_name, statement_type, i)
-          statement = cache.read(cache_key)
+            cache_key = "%s-%s-%s-%s-%s-%d" % (
+                INTRINIO_CACHE_PREFIX, "statement", ticker, statement_name, statement_type, i)
+            statement = cache.read(cache_key)
 
-          if statement == None:
-            statement = fundamentals_api.get_fundamental_standardized_financials(
-                satement_name)
+            if statement is None:
+                statement = fundamentals_api.get_fundamental_standardized_financials(
+                    satement_name)
 
-            cache.write(cache_key, statement)
+                cache.write(cache_key, statement)
 
-          hist_statements[i] = _transform_financial_stmt(
-              statement.standardized_financials, tag_filter_list)
+            hist_statements[i] = _transform_financial_stmt(
+                statement.standardized_financials, tag_filter_list)
 
     except ApiException as ae:
         raise DataError(
@@ -367,24 +377,24 @@ def _read_company_data_point(ticker: str, tag: str):
       The numerical value of the datapoint
     """
 
-
     # check the cache first
-    cache_key = "%s-%s-%s-%s" % (INTRINIO_CACHE_PREFIX, "company_data_point_number", ticker, tag)
+    cache_key = "%s-%s-%s-%s" % (INTRINIO_CACHE_PREFIX,
+                                 "company_data_point_number", ticker, tag)
     api_response = cache.read(cache_key)
 
-    if api_response == None:
-      # else call the API directly
-      try:
-          api_response = company_api.get_company_data_point_number(
-              ticker, tag)
+    if api_response is None:
+        # else call the API directly
+        try:
+            api_response = company_api.get_company_data_point_number(
+                ticker, tag)
 
-          cache.write(cache_key, api_response)
-      except ApiException as ae:
-          raise DataError(
-              "Error retrieving ('%s') -> '%s' from Intrinio Company API" % (ticker, tag), ae)
-      except Exception as e:
-          raise ValidationError(
-              "Error parsing ('%s') -> '%s' from Intrinio Company API" % (ticker, tag), e)
+            cache.write(cache_key, api_response)
+        except ApiException as ae:
+            raise DataError(
+                "Error retrieving ('%s') -> '%s' from Intrinio Company API" % (ticker, tag), ae)
+        except Exception as e:
+            raise ValidationError(
+                "Error parsing ('%s') -> '%s' from Intrinio Company API" % (ticker, tag), e)
 
     return api_response
 
@@ -419,33 +429,35 @@ def _get_company_historical_data(ticker: str, start_date: str, end_date: str, ta
     """
 
     frequency = 'yearly'
-    
+
     # check the cache first
-    cache_key = "%s-%s-%s-%s-%s-%s-%s" % (INTRINIO_CACHE_PREFIX, "company_historical_data", ticker, start_date, end_date, frequency, tag)
+    cache_key = "%s-%s-%s-%s-%s-%s-%s" % (INTRINIO_CACHE_PREFIX,
+                                          "company_historical_data", ticker, start_date, end_date, frequency, tag)
     api_response = cache.read(cache_key)
 
-    if api_response == None:
-      # else call the API directly
-      try:
-          api_response = company_api.get_company_historical_data(
-              ticker, tag, frequency=frequency, start_date=start_date, end_date=end_date)
-      except ApiException as ae:
-          raise DataError(
-              "Error retrieving ('%s', %s - %s) -> '%s' from Intrinio Company API" % (ticker, start_date, end_date, tag), ae)
-      except Exception as e:
-          raise ValidationError(
-              "Error parsing ('%s', %s - %s) -> '%s' from Intrinio Company API" % (ticker, start_date, end_date, tag), e)
+    if api_response is None:
+        # else call the API directly
+        try:
+            api_response = company_api.get_company_historical_data(
+                ticker, tag, frequency=frequency, start_date=start_date, end_date=end_date)
+        except ApiException as ae:
+            raise DataError(
+                "Error retrieving ('%s', %s - %s) -> '%s' from Intrinio Company API" % (ticker, start_date, end_date, tag), ae)
+        except Exception as e:
+            raise ValidationError(
+                "Error parsing ('%s', %s - %s) -> '%s' from Intrinio Company API" % (ticker, start_date, end_date, tag), e)
 
     if len(api_response.historical_data) == 0:
         raise DataError("No Data returned for ('%s', %s - %s) -> '%s' from Intrinio Company API" %
                         (ticker, start_date, end_date, tag), None)
     else:
-        #only write to cache if response has some valid data
+        # only write to cache if response has some valid data
         cache.write(cache_key, api_response)
 
     return api_response.historical_data_dict
 
-def _aggregate_by_year(historical_data_dict : dict):
+
+def _aggregate_by_year(historical_data_dict: dict):
     """
       Map historical company data by year (latest occurrence).
 
@@ -462,7 +474,7 @@ def _aggregate_by_year(historical_data_dict : dict):
         2018: 123,
         2019: 234
       }
-      
+
 
       Parameters
       ----------
@@ -482,7 +494,7 @@ def _aggregate_by_year(historical_data_dict : dict):
     return converted_response
 
 
-def _aggregate_by_year_month(historical_data : dict):
+def _aggregate_by_year_month(historical_data: dict):
     """
       Map historical company data by year and month and average out results.
 
@@ -500,9 +512,9 @@ def _aggregate_by_year_month(historical_data : dict):
         2019: {
           9 : 15,
           10 : 30
-        } 
+        }
       }
-      
+
 
       Parameters
       ----------
@@ -513,48 +525,47 @@ def _aggregate_by_year_month(historical_data : dict):
       -------
       A dictionary of year=>month=>value with the converted results.
     """
-    if historical_data is None: return {}
+    if historical_data is None:
+        return {}
 
     converted_response = {}
 
     # first pass assemble the basic return value
     for datapoint in historical_data:
-      year = datapoint['date'].year
-      month = datapoint['date'].month
+        year = datapoint['date'].year
+        month = datapoint['date'].month
 
-      if year not in converted_response:
-        converted_response[year] = {}
-      if month not in converted_response[year]:
-        converted_response[year][month] = []
+        if year not in converted_response:
+            converted_response[year] = {}
+        if month not in converted_response[year]:
+            converted_response[year][month] = []
 
-      converted_response[year][month].append(datapoint['value'])
+        converted_response[year][month].append(datapoint['value'])
 
     # second pass calculate averages
     for year in converted_response.keys():
-      for month in converted_response[year]:
-        converted_response[year][month] = sum(converted_response[year][month]) / len(converted_response[year][month])
-          
-    
-    return converted_response
+        for month in converted_response[year]:
+            converted_response[year][month] = sum(
+                converted_response[year][month]) / len(converted_response[year][month])
 
+    return converted_response
 
 
 @atexit.register
 def shutdown():
-  """
-    As of this writing (March 2020) there is a bug in the Intrinion API caused by this:
-    https://github.com/swagger-api/swagger-codegen/issues/9991
+    """
+      As of this writing (March 2020) there is a bug in the Intrinion API caused by this:
+      https://github.com/swagger-api/swagger-codegen/issues/9991
 
-    that prevents the threads in the API to cleanly shut down.
-    This is a workaround until a proper fix is released.
+      that prevents the threads in the API to cleanly shut down.
+      This is a workaround until a proper fix is released.
 
-    This code exists in the API source, but it's not invoked reliably, so we force
-    its invocation
-  """
-  fundamentals_api.api_client.pool.close()
-  fundamentals_api.api_client.pool.join()
-  company_api.api_client.pool.close()
-  company_api.api_client.pool.join()
-  security_api.api_client.pool.close()
-  security_api.api_client.pool.join()
-
+      This code exists in the API source, but it's not invoked reliably, so we force
+      its invocation
+    """
+    fundamentals_api.api_client.pool.close()
+    fundamentals_api.api_client.pool.join()
+    company_api.api_client.pool.close()
+    company_api.api_client.pool.join()
+    security_api.api_client.pool.close()
+    security_api.api_client.pool.join()

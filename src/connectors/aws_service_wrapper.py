@@ -17,7 +17,7 @@ This module wraps the boto SDK an offers the following value add to the applicat
     3) Provide filtering options that are meaningful to the application
 """
 
-#Global clients available to this module]
+# Global clients available to this module]
 try:
     cf_client = boto3.client('cloudformation')
     s3_client = boto3.client('s3')
@@ -29,7 +29,8 @@ except Exception as e:
 # A simple in memory cached used to reduce roundtrips to AWS
 aws_response_cache = {}
 
-def cf_list_exports(stack_name_filter : list):
+
+def cf_list_exports(stack_name_filter: list):
     '''
         Reads all ClouFormation exports and returns only the ones
         included in the stack_name_filter list
@@ -49,18 +50,18 @@ def cf_list_exports(stack_name_filter : list):
         }
     '''
     def get_stackname_from_stackarn(arn: str):
-        
-        #arn:aws:cloudformation:region:acct:stack/app-infra-base/c9481160-6df5-11ea-ac9f-121b58656156
+
+        # arn:aws:cloudformation:region:acct:stack/app-infra-base/c9481160-6df5-11ea-ac9f-121b58656156
         try:
             arn_elements = arn.split(':')
             stack_id = arn_elements[5]
 
             stack_elements = stack_id.split("/")
-            return stack_elements[1]    
+            return stack_elements[1]
         except Exception as e:
             raise ValidationError("Could not parse stack ID from arn", e)
-    
-    if stack_name_filter == None:
+
+    if stack_name_filter is None:
         stack_name_filter = []
 
     return_dict = {}
@@ -79,7 +80,8 @@ def cf_list_exports(stack_name_filter : list):
 
         for page in response_iterator:
             for export in page['Exports']:
-                stack_name = get_stackname_from_stackarn(export['ExportingStackId'])
+                stack_name = get_stackname_from_stackarn(
+                    export['ExportingStackId'])
                 if (stack_name in stack_name_filter):
                     return_dict[export['Name']] = export['Value']
 
@@ -91,7 +93,7 @@ def cf_list_exports(stack_name_filter : list):
         raise AWSError("Could not list Cloudformation exports", e)
 
 
-def cf_read_export_value(export_name : str):
+def cf_read_export_value(export_name: str):
     '''
         Helper function to read the value of a specific CloudFormation export
         given the supplied export name
@@ -99,35 +101,37 @@ def cf_read_export_value(export_name : str):
     filter_list = constants.APP_CF_STACK_NAMES
 
     app_cf_exports = cf_list_exports(filter_list)
-    try:    
+    try:
         return app_cf_exports[export_name]
     except Exception:
-        raise ValidationError("%s could not be found in clouformation exports." % export_name, None)
-    
+        raise ValidationError(
+            "%s could not be found in clouformation exports." % export_name, None)
 
-def s3_download_object(bucket_name : str, object_name : str, dest_path : str):
+
+def s3_download_object(bucket_name: str, object_name: str, dest_path: str):
     '''
-        Downloads an s3 object to the local filesystem and saves it to 
+        Downloads an s3 object to the local filesystem and saves it to
         the destination path (path + filename)
     '''
     try:
         s3_client.download_file(bucket_name, object_name, dest_path)
     except Exception as e:
-        raise AWSError("Could not download s3://%s/%s --> %s" % (bucket_name, object_name, dest_path), e)
+        raise AWSError("Could not download s3://%s/%s --> %s" %
+                       (bucket_name, object_name, dest_path), e)
 
 
-
-def s3_upload_object(source_path : str, bucket_name : str, object_name : str):
+def s3_upload_object(source_path: str, bucket_name: str, object_name: str):
     '''
         Uploads a file from the source_path (path + file) to the destination bucket
     '''
     try:
         s3_client.upload_file(source_path, bucket_name, object_name)
     except Exception as e:
-        raise AWSError("Could not upload %s --> s3://%s/%s" % (source_path, bucket_name, object_name), e)
+        raise AWSError("Could not upload %s --> s3://%s/%s" %
+                       (source_path, bucket_name, object_name), e)
 
 
-def s3_upload_ascii_string(object_contents : str, s3_bucket_name : str, s3_object_name : str):
+def s3_upload_ascii_string(object_contents: str, s3_bucket_name: str, s3_object_name: str):
     '''
         Uploads an ASCII string directly to S3, bypassing a local file.
     '''
@@ -138,9 +142,11 @@ def s3_upload_ascii_string(object_contents : str, s3_bucket_name : str, s3_objec
             Key=s3_object_name
         )
     except Exception as e:
-        raise AWSError("Could not upload String to s3://%s/%s" % (s3_bucket_name, s3_object_name), e)
+        raise AWSError("Could not upload String to s3://%s/%s" %
+                       (s3_bucket_name, s3_object_name), e)
 
-def sns_publish_notification(topic_arn : str, subject : str, message : str):
+
+def sns_publish_notification(topic_arn: str, subject: str, message: str):
     '''
         Publishes a simple SNS message
     '''
@@ -151,4 +157,5 @@ def sns_publish_notification(topic_arn : str, subject : str, message : str):
             Subject=subject
         )
     except Exception as e:
-        raise AWSError("Cannot publish message to SNS topic: %s" % topic_arn, e)
+        raise AWSError("Cannot publish message to SNS topic: %s" %
+                       topic_arn, e)

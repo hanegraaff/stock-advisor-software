@@ -9,12 +9,13 @@ import logging
 
 log = logging.getLogger()
 
+
 class FinancialCache():
     """
         A Disk based database containing an offline version of financial
-        data and used as a cache 
+        data and used as a cache
     """
-    
+
     def __init__(self, path, **kwargs):
         '''
             Initializes the cache
@@ -26,7 +27,7 @@ class FinancialCache():
 
             max_cache_size_bytes : int (kwargs)
             (optional) the maximum size of the cache in bytes
-            
+
             Returns
             -----------
             A tuple of strings containing the start and end date of the fiscal period
@@ -39,7 +40,7 @@ class FinancialCache():
             max_cache_size_bytes = 4e9
 
         util.create_dir(path)
-        
+
         try:
             self.diskCache = Cache(path, size_limit=int(max_cache_size_bytes))
         except Exception as e:
@@ -47,7 +48,7 @@ class FinancialCache():
 
         log.debug("Cache was initialized: %s" % path)
 
-    def write(self, key : str, value : object):
+    def write(self, key: str, value: object):
         """
             Writes an object (value) to the cache using the supplied key
         """

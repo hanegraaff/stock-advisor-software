@@ -1,43 +1,43 @@
-"""valuate_security.py
+"""test_script.py
 
+A general purpose test script. Nothing to see here.
 """
 import argparse
 import logging
-from exception.exceptions import BaseError
-from data_provider import intrinio_data
-from data_provider import intrinio_util
 from datetime import datetime
-from support import util
-from strategies.price_dispersion_strategy import PriceDispersionStrategy
-from strategies import calculator
-from cloud import aws_service_wrapper
-from support import logging_definition
+import dateutil.parser as parser
+from support import logging_definition, util
+from connectors import td_ameritrade
+from services.broker import Broker
+from model.portfolio import Portfolio
 
 #
 # Main script
 #
 
-description = """ This script is used for testing purposes only
-              """
-
-
-parser = argparse.ArgumentParser(description=description)
 log = logging.getLogger()
 
-args = parser.parse_args()
-
-ticker_list = []
-
 try:
-    strategy = PriceDispersionStrategy(['AAPL', 'MSFT'], 2019, 10, 3)
-    rec = strategy.generate_recommendation()
 
-    df = calculator.mark_to_market(strategy.raw_dataframe, datetime.now())
 
-    print(df)
+    '''pfolio = Portfolio.from_s3('sa')
+    positions = td_ameritrade.positions_summary()
 
-    #print(aws_service_wrapper.cf_list_exports(['app-infra-base', 'app-infra-compute']))
-    
+    b = Broker()
+    (sell_instructions, buy_instructions) = b._generate_trade_instructions(positions, pfolio)
+    log.info((sell_instructions, buy_instructions))
+
+    b.synchronize_portfolio(positions, pfolio)
+    b.cancel_all_open_orders()
+
+    b.materialize_portfolio(positions, pfolio)'''
+
+    date_str = '2020-05-11T16:10:30+0000'
+
+    print(date_str)
+    print(util.date_to_iso_utc_string(parser.parse(date_str)))
+
+
 except Exception as e:
     logging.error("Could run script, because, %s" % (str(e)))
-    exit(-1)
+    raise e

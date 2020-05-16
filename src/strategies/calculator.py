@@ -9,7 +9,7 @@ strategies contained in this package.
 """
 
 
-def mark_to_market(df : object, price_date : datetime):
+def mark_to_market(df: object, price_date: datetime):
     """
         Peforms a Mark to Market on a Pandas dataframe representing
         a ranked portfolio, and given a price date. This is used
@@ -17,7 +17,7 @@ def mark_to_market(df : object, price_date : datetime):
         strategies
 
         The dataframe must contain the following columuns:
-        
+
         * ticker
         * analysis_price
 
@@ -31,7 +31,6 @@ def mark_to_market(df : object, price_date : datetime):
         df : Pandas DataFrame
             portfolio dataframe
         price_date : datetime
-
             price date, current or historical
 
         Returns
@@ -45,21 +44,25 @@ def mark_to_market(df : object, price_date : datetime):
     """
 
     if (df is None or price_date is None):
-        raise ValidationError("Invalid Parameters supplied to Mark to Market calculation", None)
+        raise ValidationError(
+            "Invalid Parameters supplied to Mark to Market calculation", None)
 
     if ('ticker' not in df.columns
-        or 'analysis_price' not in df.columns):
-        raise ValidationError("Could not extract required fields for Mark to Market calculation", None)
+            or 'analysis_price' not in df.columns):
+        raise ValidationError(
+            "Could not extract required fields for Mark to Market calculation", None)
 
     mmt_prices = []
-    
+
     for ticker in df['ticker']:
         try:
-            latest_price = intrinio_data.get_latest_close_price(ticker, price_date, 5)[1]
+            latest_price = intrinio_data.get_latest_close_price(ticker, price_date, 5)[
+                1]
             mmt_prices.append(latest_price)
         except Exception as e:
             raise DataError("Could not perform MMT calculation", e)
 
     df['current_price'] = mmt_prices
-    df['actual_return'] = (df['current_price'] - df['analysis_price']) / df['analysis_price']
+    df['actual_return'] = (df['current_price'] -
+                           df['analysis_price']) / df['analysis_price']
     return df

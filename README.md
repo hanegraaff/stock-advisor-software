@@ -5,13 +5,15 @@ This repo is part of the Stock Advisor project found here:
 
 https://github.com/hanegraaff/stock-advisor-infrastructure
 
-This project covers the application software that constitutes the Stock Advisor System, namely the Securities Recommendation Service and the Portfolio Manager.
+This project contains the Stock Advisor application software. It is organized into two services that run as docker images. The first is a recommendation system that generates stock predictions based on market sentiment, and the second is a portfolio manager that executes trades based on those same predictions.
 
 
 # Table of Contents
-* [Financial Data](#financial-data)
+* [Financial Brokerage and Data](#financial-brokerage-and-data)
 * [Prerequisites](#prerequisites)
-    * [API Keys](#api-keys)
+    * [Authentication Keys](#authentication-keys)
+        * [Intrinio API Key](#intrinio-api-key)
+        * [TDAmeritrade Keys](#tdameritrade-keys)
     * [Develpment Environment](#develpment-environment)
 * [Securities Recommendation Service](#securities-recommendation-service)
     * [Release Notes](#recommendation-service-release-notes)
@@ -32,23 +34,50 @@ This project covers the application software that constitutes the Stock Advisor 
     * [Running the service in ECS](#running-the-service-in-ECS)
 * [Unit Testing](#unit-testing)
 
-# Financial Data
-This software relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. This data is sourced from Intrinio, though other providers could be used.
+# Financial Brokerage and Data
+This software relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. As of this version, data is sourced from Intrinio, though other providers may be supported in the future.
 
 Intrinio offers free access to their sandbox, which gives developers access to a limited dataset comprising of the DOW30, and the results presented here are based on that list. A paid subscription allows access to a much larger universe of stocks.
 
-# Prerequisites
-1) Python 3.8 (required for latest argparse features)
-2) Intrinio API Key
-3) Access to AWS account with properly configured AWS Keys.
-4) Ability to interact with AWS Services using the console, specifically ECS, ECR, S3, SNS, Parameter Store and CodeBuild.
+This software also has the ability to trade automatically and requires access to a personal TD Ameritrade brokerage account. Once configured, it will use the cash available in the account to maintain an evolving portfolio based on the latest recommendations.
 
-## API Keys
-An API Key for the Intrinio (https://www.intrinio.com) with access to the "US Fundamentals and Stock Prices" and "Zacks Price Targets" feeds
+# Prerequisites
+1) Python 3.8
+2) Intrinio API Key
+3) Access to a TDAmeritrade brokerage account
+4) Access to AWS account.
+
+## Authentication Keys
+All authentication keys are stored as environment variables. When running locally these
+must be exported to the environment, and when running on ECS they are sourced directly
+from the parameter store and fed to the container environment. This section describes the process of exporting keys locally.
+
+### Intrinio API Key
+You will need to set up an Intrinio API Key (https://www.intrinio.com) with access to the "US Fundamentals and Stock Prices" and "Zacks Price Targets" feeds.
 
 the API must be saved to the environment like so:
 
 ```export INTRINIO_API_KEY=[your API key]```
+
+### TDAmeritrade Keys
+Additionally, you will need to authenticate with TDAmeritrade in order to buy and sell securities. This software will treat the account as its own, meaning that any
+positions that are not part of its portolio, will be unwound. Specifically, it will
+execute trades in a way that positions will always match those in the recommended portfolio.
+
+TDAmeritrade uses OAuth for authentication, and the initial setup process is described
+here:
+
+https://github.com/hanegraaff/TDAmeritrade-api-authentication
+
+As of this version you must manually create an authorization code and an inital refresh token that will be valid for 3 months, after which the process must be repeated.
+
+Once you generate these artifacts, you must save them in the environment like this:
+
+```
+export TDAMERITRADE_ACCOUNT_ID=[your TDAmeritrade Account ID]
+export TDAMERITRADE_CLIENT_ID=[your TDAmeritrade Client ID/Consumer Key]
+export TDAMERITRADE_REFRESH_TOKEN=[your TDAmeritrade refresh token]
+```
 
 ## Develpment Environment
 ```pip install -r requirements.txt```
@@ -75,7 +104,7 @@ All scripts must be executed from the ```src``` folder.
 # Securities Recommendation Service
 ![Security Recommendation Service Design](doc/recommendation-service.png)
 
-The Securities Recommendation service is a component of the Stock Advisor system that generates monthly US Equities recommendations using a market sentiment algorithm that ranks stocks the level of analyst target price agreement. It is based on the findings of paper like these:
+The Securities Recommendation service is a component of the Stock Advisor system that generates monthly US Equities recommendations using a market sentiment algorithm that ranks stocks based on the level of analyst target price agreement. It is based on the findings of paper like these:
 
 |Paper|Author(s)|
 |--|--|
@@ -85,6 +114,8 @@ The Securities Recommendation service is a component of the Stock Advisor system
 
 They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but the degree of agreement/disagreement is.
 
+The system is capable of producing recommendations that are valid throughout the month,
+and when running daily it will ensure that recommendations are current and that new ones will be created when the old ones expire.
 
 ## Recommendation Service Release Notes
 This is an initial version that offers the following features
@@ -106,8 +137,8 @@ These are the specific steps:
     - Analyst price forecast standard deviation
     - Analyst price forecast count (i.e. total forecasts)
 2) Normalize the standard deviation by converting it into a relative percentage.
-3) Rank the portfolio by this percentage and sort into deciles.
-4) Select a subset from the last decile. This will return stocks with the largest level of disagreement.
+3) Rank the portfolio by this percentage and sort into deciles. Sort each decile by expected return.
+4) Select a subset from the top decile(s). This will return stocks with the largest level of disagreement.
 
 ## Running the service from the command line
 The easiest way to run this service is via the command line. This section describes how.
@@ -317,7 +348,7 @@ To delete or reset the contents of the cache, simply delete entire ```./financia
 
 
 ## Backtesting
-It is possible to backtest this strategy by running the price_dispersion_backtest.py script. It works by running the strategy from 05/2019 to 12/2019 and comparing the returns of the selected portfolio with the average of the list supplied to it.
+It is possible to backtest this strategy by running the ```price_dispersion_backtest.py``` script. It works by running the strategy from 05/2019 to 12/2019 and comparing the returns of the selected portfolio with the average of the list supplied to it.
 
 Example:
 
@@ -345,22 +376,26 @@ Each line reports the returns for each montly portfolio selection at a 1 month, 
 # Portfolio Manager
 ![Portfolio Manager Design](doc/portfolio-manager.png)
 
-The Portfolio Manager service is a component of the Stock Advisor system that actively manager a protfolio based on the output of the recommendation service.
+The Portfolio Manager service is a component of the Stock Advisor system that actively manages a protfolio based on the output of the recommendation service. The service is designed to run daily, and typically takes a few seconds to execute. When running in ECS, the service is scheduled to run daily at 11am EST, and will maintain a stock portfolio on the supplied TDAmeritrade account.
 
 ## Portfolio Manager Release Notes
-This is software is still under development. It does not yet interact with an online broker and make trades.
+This is an initial version that offers the following features:
 
-* Create new portfolio based on latest recommendation or load existing one.
-* Calculate the current returns
-* Send SNS Notifications
-
+* Create new portfolio based on latest recommendation, or update an existing one stored in S3.
+* Execute trades necessary to materialize the portfolio.
+* Ability to run inside a Docker container
+* Integrate into Stock Advisor Infrastructure, specifically ECS.
+* Send SNS Notifications with summary of returns and any trading activity
 
 
 ## Trading Strategy
-The initial version of the Portfolio Manager will take a random subset of the recommended securities and maintain a monthly portfolio of long positions. Over time this strategy will improve to allow for more frequent rebalancing.
+The current strategy is to buy and hold a portfolio based on the most recent recommendations. When a new recommendation set is created, the portfolio will be rebalaned accordingly. Specifically, each time service is run, it will do the following:
 
-* Read current recommendations from S3
-* Create an empty portfolio and save it to S3
+1) Read the latest recommendations and portfolio objects from S3.
+2) Reprice the portfolio and update it based on the contents of the recommendations. If the portfolio recommendations have changed then create a new portfolio, otherwise keep the existing one.
+3) Check to see of the Equities market is open and if is, materialize the portfolio. This means taking the securities in it, which represent the desired state, and execute the trades necessary to create matching positions.
+4) If there are any errors, and only a portion of the portfilio could be fulfilled, the will be retried the next time the service runs.
+
 
 ## Running the Portfolio Manager from the command line
 ```
@@ -399,48 +434,56 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
 [INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/security-recommendation-set.json --> ./app_data/security-recommendation-set.json
 [INFO] - Loading current portfolio
 [INFO] - Downloading Portfolio: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/portfolios/current-portfolio.json --> ./app_data/current-portfolio.json
-[INFO] - Loaded recommendation set id: cfa3823a-8455-11ea-a0a5-acbc329ef75f
+[INFO] - Loaded recommendation set id: 52821fda-90dc-11ea-b5d1-acbc329ef75f
 [INFO] - Repricing portfolio
-[INFO] - Repriced portfolio for date of 2020-04-23 00:00:00
+[INFO] - Repriced portfolio for date of 2020-05-08 00:00:00
 [INFO] - Portfolio is still current. No rebalancing necessary
+[INFO] - Generating TDAmeritrade refresh token
+[INFO] - Market is closed. Nothing to trade
 [INFO] - updated portfolio: {
-    "portfolio_id": "d645eaec-8455-11ea-b1d4-acbc329ef75f",
-    "set_id": "cfa3823a-8455-11ea-a0a5-acbc329ef75f",
-    "creation_date": "2020-04-22T04:57:59.021471+00:00",
-    "price_date": "2020-04-23T04:00:00+00:00",
+    "portfolio_id": "3a53394e-93e8-11ea-b6ab-8217042f1400",
+    "set_id": "52821fda-90dc-11ea-b5d1-acbc329ef75f",
+    "creation_date": "2020-05-12T00:33:40.845042+00:00",
+    "price_date": "2020-05-08T04:00:00+00:00",
     "securities_set": [],
     "current_portfolio": {
         "securities": [
             {
                 "ticker_symbol": "BA",
-                "quantity": 0,
-                "purchase_date": null,
-                "purchase_price": 136.33,
-                "current_price": 137.74,
-                "current_returns": 0.010342551162620062
+                "quantity": 3.0,
+                "purchase_date": "2020-05-12T03:38:35.997029+00:00",
+                "purchase_price": 129.21333,
+                "current_price": 133.44,
+                "current_returns": 0.03271078920417869,
+                "trade_state": "FILLED",
+                "order_id": null
             },
             {
                 "ticker_symbol": "GE",
-                "quantity": 0,
-                "purchase_date": null,
-                "purchase_price": 6.48,
-                "current_price": 6.52,
-                "current_returns": 0.006172839506172645
+                "quantity": 67.0,
+                "purchase_date": "2020-05-12T03:38:35.997090+00:00",
+                "purchase_price": 6.19522,
+                "current_price": 6.29,
+                "current_returns": 0.015298891726201802,
+                "trade_state": "FILLED",
+                "order_id": null
             },
             {
                 "ticker_symbol": "XOM",
-                "quantity": 0,
-                "purchase_date": null,
-                "purchase_price": 40.96,
-                "current_price": 43.45,
-                "current_returns": 0.060791015625
+                "quantity": 9.0,
+                "purchase_date": "2020-05-12T03:38:35.997113+00:00",
+                "purchase_price": 45.70556,
+                "current_price": 46.18,
+                "current_returns": 0.010380356350518483,
+                "trade_state": "FILLED",
+                "order_id": null
             }
         ]
     }
 }
 [INFO] - Saving updated portfolio
 [INFO] - Uploading Portfolio to S3: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/portfolios/current-portfolio.json
-[INFO] - Publishing portfilio update to SNS topic: arn:aws:sns:us-east-1:252849529410:sa-app-notifications-topic
+[INFO] - Publishing portfolio update to SNS topic: arn:aws:sns:us-east-1:123456789010:sa-app-notifications-topic
 ```
 
 After updating the portfolio a notification will be sent to SNS with the selected portfolio and its current returns. This results in the following email.
@@ -449,24 +492,28 @@ After updating the portfolio a notification will be sent to SNS with the selecte
 From: sa-app-notification-topic (no-reply@sns.amazonaws.com)
 To: Me
 
-Portfolio was created on: 2020/04/22 04:57 AM
-Price date is: 2020/04/23
+Portfolio was created on: 2020/05/11 08:33 PM
+Price date is: 2020/05/08
 
 Symbol: BA
-Simulated Purchase Price: 136.33
-Current Price: 137.74 (+1%)
+Purchase Price: 129.21
+Current Price: 133.44 (+3%)
 
 Symbol: GE
-Simulated Purchase Price: 6.48
-Current Price: 6.52 (+1%)
+Purchase Price: 6.20
+Current Price: 6.29 (+2%)
 
 Symbol: XOM
-Simulated Purchase Price: 40.96
-Current Price: 43.45 (+6%)
+Purchase Price: 45.70
+Current Price: 46.18 (+1%)
 ```
 
 # Running the Services
+The previous sections describe how to run the application locally. It's possible to run the recommendation sytem and back test without any dependencies to AWS.
+The portfolio manager can also be run locally, but does have dependencies to AWS, though a future version of it won't require it.
+
 This section describes how to run the services either locally using Docker, or using ECS. The latter, specifically AWS Fargate, is the intended runtime platform for these services.
+
 
 ## Running the service as a docker image
 It is possible to package the services as a Docker image. To build the container, run the ```docker_build.sh```. This command will build both Stock Advisor services, and you'll be able to run them locally.
@@ -507,7 +554,7 @@ stock-advisor/recommendation-svc   v1.0.0              4f443c16ccce        38 se
 python                             3.8-slim-buster     56930ef6f6a2        2 weeks ago         193MB
 ```
 
-Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable. AWS credentials must also be supplied externally, in a similar way.
+Once built, the container is executed in a similar way as the script. Note how the ```INTRINIO_API_KEY``` must be supplied as a special environment variable when running the recommendation system. AWS credentials must also be supplied externally, in a similar way.
 
 For example:
 
@@ -518,7 +565,7 @@ docker run -e INTRINIO_API_KEY=xxx image-id -ticker_file djia30.txt -output_size
 ## Running the service in ECS
 This service is intended to be run in ECS using a Fargate task. The automation contained in the main project will create the ECS Cluster, Task Definitions, Scheduled Tasks, Container Repositories and CodeBuild project needed to build and deploy the service to AWS. Please refer to the main project for instructons on how to leverage automation to build and deploy the system.
 
-Both the Recommendation Service and Portfolio manager are configured to run as scheduled tasks. The former is intended to run monthly and the latter daily, though this will likely change as development continues.
+Both the Recommendation Service and Portfolio manager are configured to run as scheduled tasks, and run daily
 
 Tasks may be run on demand using the AWS console and navigating to the ECS Task defintions
 
@@ -526,9 +573,10 @@ Tasks may be run on demand using the AWS console and navigating to the ECS Task 
 
 When running the task be sure to set the following:
 
-1) Set the launch type to ```Fargate``` 
-2) Select the VPC that was created using the automation. The CIDR block is 192.16.0.0/16, or you can check the tags to identify the proper one
-3) Ensure the that a public IP address is auto assigned.
+1) Set the launch type to ```Fargate```.
+2) Select the VPC that was created using the automation. The CIDR block is 192.16.0.0/16, or you can check the tags to identify the proper one.
+3) Select a security group with 'no inbound/full outbound' access. This automation creates one called ```sa-sg```.
+4) Ensure the that a public IP address is auto assigned.
 
 ![ECS Task Definitions](doc/run-ecs-task-1.png)
 ![ECS Task Definitions](doc/run-ecs-task-2.png)
@@ -544,28 +592,30 @@ This command will execute all unit tests and run the coverage report (using cove
 
 ```
 src >>./test.sh
-......................................................................................................
+.................................................................................................................................................
 ----------------------------------------------------------------------
-Ran 102 tests in 0.332s
+Ran 145 tests in 0.331s
 
 OK
 Name                                      Stmts   Miss  Cover
 -------------------------------------------------------------
-cloud/aws_service_wrapper.py                 70      7    90%
-data_provider/intrinio_data.py              142     40    72%
+connectors/aws_service_wrapper.py            70      7    90%
+connectors/td_ameritrade.py                 146     20    86%
+data_provider/intrinio_data.py              143     40    72%
 data_provider/intrinio_util.py               27      0   100%
-exception/exceptions.py                      32      1    97%
+exception/exceptions.py                      40      1    98%
 model/base_model.py                          59     10    83%
-model/portfolio.py                           62      2    97%
+model/portfolio.py                           78      2    97%
 model/recommendation_set.py                  45      0   100%
 model/ticker_file.py                         44     10    77%
-service_support/portfolio_mgr_svc.py         72      7    90%
-service_support/recommendation_svc.py        29      3    90%
+services/broker.py                          143     10    93%
+services/portfolio_mgr_svc.py                71      1    99%
+services/recommendation_svc.py               29      3    90%
 strategies/calculator.py                     19      0   100%
 strategies/price_dispersion_strategy.py      68     29    57%
 support/constants.py                         14      0   100%
 support/financial_cache.py                   33      2    94%
-support/util.py                              27      1    96%
+support/util.py                              29      1    97%
 -------------------------------------------------------------
-TOTAL                                       743    112    85%
+TOTAL                                      1058    136    87%
 ```

@@ -6,11 +6,11 @@ import random
 import dateutil.parser as parser
 from tzlocal import get_localzone
 from datetime import datetime
-from cloud import aws_service_wrapper
+from connectors import aws_service_wrapper
 from exception.exceptions import ValidationError, AWSError
 from model.portfolio import Portfolio
 from model.recommendation_set import SecurityRecommendationSet
-from cloud import aws_service_wrapper
+from connectors import aws_service_wrapper
 from support import util, constants
 
 log = logging.getLogger()
@@ -21,7 +21,8 @@ It exists solely so that the code may be tested. otherwise it would
 be organized along with the service itself.
 """
 
-def get_service_inputs(app_ns : str):
+
+def get_service_inputs(app_ns: str):
     '''
         Returns the required inputs for the recommendation service given
         the application namespace used to identify the appropriate cloud resources.
@@ -45,12 +46,13 @@ def get_service_inputs(app_ns : str):
     except AWSError as e:
         if e.resource_not_found():
             pfolio = None
-        else: raise e
+        else:
+            raise e
 
     return (pfolio, sr)
 
 
-def update_portfolio(current_portfolio : object, recommendation_set : object, portfolio_size : int):
+def update_portfolio(current_portfolio: object, recommendation_set: object, portfolio_size: int):
     '''
         Updates the portolio based on the recommendation set.
 
@@ -63,7 +65,7 @@ def update_portfolio(current_portfolio : object, recommendation_set : object, po
         A tuple containing the updated portfolio (copy) and a boolean flag indicating
         whether positions were updated (and should be traded)
     '''
-    def select_random_portfolio(portfolio_size : int):
+    def select_random_portfolio(portfolio_size: int):
         '''
             selects a randmon subset of the security set and creates
             a portfolio out out it.
@@ -84,19 +86,21 @@ def update_portfolio(current_portfolio : object, recommendation_set : object, po
             random_security = random.choice(security_set)
 
             updated_portfolio.model['current_portfolio']['securities'].append({
-                    "ticker_symbol" : random_security['ticker_symbol'],
-                    "quantity" : 0,
-                    "purchase_date" : None,
-                    "purchase_price":  random_security['current_price'],
-                    "current_price" :  random_security['current_price'],
-                    "current_returns": 0
-                }
+                "ticker_symbol": random_security['ticker_symbol'],
+                "quantity": 0,
+                "purchase_date": None,
+                "purchase_price": 0,
+                "current_price": random_security['current_price'],
+                "current_returns": 0,
+                "trade_state": "UNFILLED",
+                "order_id": None
+            }
             )
 
             security_set.remove(random_security)
 
     updated_portfolio = current_portfolio.copy()
-    
+
     updated = False
     pfolio_set_id = current_portfolio.model['set_id']
     rec_set_id = recommendation_set.model['set_id']
@@ -115,16 +119,18 @@ def update_portfolio(current_portfolio : object, recommendation_set : object, po
     else:
         log.info("Portfolio is still current. No rebalancing necessary")
 
+    updated_portfolio.validate_model()
 
     return (updated_portfolio, updated)
 
 
-def publish_current_returns(updated_portfolio : object, updated : bool, app_ns : str):
+def publish_current_returns(updated_portfolio: object, updated: bool, app_ns: str):
     '''
         publishes current returns as a SNS notifcation, given an updated portfolio
     '''
-    
-    sns_topic_arn = aws_service_wrapper.cf_read_export_value(constants.sns_app_notifications_topic_arn(app_ns))
+
+    sns_topic_arn = aws_service_wrapper.cf_read_export_value(
+        constants.sns_app_notifications_topic_arn(app_ns))
     subject = "Portfolio Update - "
 
     if updated == True:
@@ -135,20 +141,19 @@ def publish_current_returns(updated_portfolio : object, updated : bool, app_ns :
     creation_date = parser.parse(updated_portfolio.model['creation_date'])
     price_date = parser.parse(updated_portfolio.model['price_date'])
 
-    message = "Portfolio was created on: %s\n" % datetime.strftime(creation_date.astimezone(get_localzone()), '%Y/%m/%d %I:%M %p')
-    message += "Price date is: %s\n\n" % datetime.strftime(price_date, '%Y/%m/%d')
+    message = "Portfolio was created on: %s\n" % datetime.strftime(
+        creation_date.astimezone(get_localzone()), '%Y/%m/%d %I:%M %p')
+    message += "Price date is: %s\n\n" % datetime.strftime(
+        price_date, '%Y/%m/%d')
     for security in updated_portfolio.model['current_portfolio']['securities']:
         message += "Symbol: %s\n" % security['ticker_symbol']
-        message += "Simulated Purchase Price: %.2f\n" % security['purchase_price']
-        message += "Current Price: %.2f (%+d%%)\n" % (security['current_price'], round(security['current_returns'] * 100))
+        message += "Purchase Price: %.2f\n" % security[
+            'purchase_price']
+        message += "Current Price: %.2f (%+d%%)\n" % (
+            security['current_price'], round(security['current_returns'] * 100))
         message += "\n"
 
-    log.info("Publishing portfilio update to SNS topic: %s" % sns_topic_arn)
-    aws_service_wrapper.sns_publish_notification(sns_topic_arn, subject, message)
+    log.info("Publishing portfolio update to SNS topic: %s" % sns_topic_arn)
+    aws_service_wrapper.sns_publish_notification(
+        sns_topic_arn, subject, message)
 
-
-
-
-
-def execute_trades(trades : object):
-    pass

@@ -21,7 +21,7 @@ from support import constants
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] - %(message)s')
 
-description = """ 
+description = """
                 A backtest for the PRICE_DISPERSION strategy
 
                 It works by running the strategy on a monthly basis and then displaying
@@ -31,8 +31,10 @@ description = """
 
 
 parser = argparse.ArgumentParser(description=description)
-parser.add_argument("-ticker_file", help="Ticker Symbol file", type=str, required=True)
-parser.add_argument("-output_size", help="Number of selected securities", type=int, required=True)
+parser.add_argument("-ticker_file", help="Ticker Symbol file",
+                    type=str, required=True)
+parser.add_argument(
+    "-output_size", help="Number of selected securities", type=int, required=True)
 
 log = logging.getLogger()
 
@@ -71,7 +73,8 @@ backtest_summary = {
 
 today = datetime.now()
 
-def backtest(year : int, month : int):
+
+def backtest(year: int, month: int):
     data_end_date = intrinio_util.get_month_date_range(year, month)[1]
 
     strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
@@ -81,15 +84,22 @@ def backtest(year : int, month : int):
     date_2m = data_end_date + timedelta(days=60)
     date_3m = data_end_date + timedelta(days=90)
 
-    portfolio_1m = calculator.mark_to_market(strategy.recommendation_dataframe, date_1m)['actual_return'].mean()*100
-    portfolio_2m = calculator.mark_to_market(strategy.recommendation_dataframe, date_2m)['actual_return'].mean()*100
-    portfolio_3m = calculator.mark_to_market(strategy.recommendation_dataframe, date_3m)['actual_return'].mean()*100
+    portfolio_1m = calculator.mark_to_market(
+        strategy.recommendation_dataframe, date_1m)['actual_return'].mean() * 100
+    portfolio_2m = calculator.mark_to_market(
+        strategy.recommendation_dataframe, date_2m)['actual_return'].mean() * 100
+    portfolio_3m = calculator.mark_to_market(
+        strategy.recommendation_dataframe, date_3m)['actual_return'].mean() * 100
 
-    all_stocks_1m = calculator.mark_to_market(strategy.raw_dataframe, date_1m)['actual_return'].mean()*100
-    all_stocks_2m = calculator.mark_to_market(strategy.raw_dataframe, date_2m)['actual_return'].mean()*100
-    all_stocks_3m = calculator.mark_to_market(strategy.raw_dataframe, date_3m)['actual_return'].mean()*100
+    all_stocks_1m = calculator.mark_to_market(strategy.raw_dataframe, date_1m)[
+        'actual_return'].mean() * 100
+    all_stocks_2m = calculator.mark_to_market(strategy.raw_dataframe, date_2m)[
+        'actual_return'].mean() * 100
+    all_stocks_3m = calculator.mark_to_market(strategy.raw_dataframe, date_3m)[
+        'actual_return'].mean() * 100
 
-    backtest_report['investment_period'].append(data_end_date.strftime('%Y/%m'))
+    backtest_report['investment_period'].append(
+        data_end_date.strftime('%Y/%m'))
     backtest_report['ticker_sample_size'].append(len(strategy.raw_dataframe))
 
     backtest_report['avg_ret_1M'].append(all_stocks_1m)
@@ -101,7 +111,8 @@ def backtest(year : int, month : int):
 
 try:
 
-    ticker_list = TickerFile.from_local_file(constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
+    ticker_list = TickerFile.from_local_file(
+        constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
 
     backtest(2019, 5)
     backtest(2019, 6)
@@ -113,26 +124,29 @@ try:
     backtest(2019, 12)
     #backtest(2020, 1)
 
-
     backtest_dataframe = pd.DataFrame(backtest_report)
     pd.options.display.float_format = '{:.2f}%'.format
-    print(backtest_dataframe.to_string(index=False)) 
-
+    print(backtest_dataframe.to_string(index=False))
 
     backtest_summary['investment_period'] = ['----/--']
-    backtest_summary['ticker_sample_size']= ['--']
+    backtest_summary['ticker_sample_size'] = ['--']
 
-    backtest_summary['avg_tot_1M'].append(backtest_dataframe['avg_ret_1M'].sum())
-    backtest_summary['sel_tot_1M'].append(backtest_dataframe['sel_ret_1M'].sum())
-    backtest_summary['avg_tot_2M'].append(backtest_dataframe['avg_ret_2M'].sum())
-    backtest_summary['sel_tot_2M'].append(backtest_dataframe['sel_ret_2M'].sum())
-    backtest_summary['avg_tot_3M'].append(backtest_dataframe['avg_ret_3M'].sum())
-    backtest_summary['sel_tot_3M'].append(backtest_dataframe['sel_ret_3M'].sum())
-
+    backtest_summary['avg_tot_1M'].append(
+        backtest_dataframe['avg_ret_1M'].sum())
+    backtest_summary['sel_tot_1M'].append(
+        backtest_dataframe['sel_ret_1M'].sum())
+    backtest_summary['avg_tot_2M'].append(
+        backtest_dataframe['avg_ret_2M'].sum())
+    backtest_summary['sel_tot_2M'].append(
+        backtest_dataframe['sel_ret_2M'].sum())
+    backtest_summary['avg_tot_3M'].append(
+        backtest_dataframe['avg_ret_3M'].sum())
+    backtest_summary['sel_tot_3M'].append(
+        backtest_dataframe['sel_ret_3M'].sum())
 
     backtest_summary_dataframe = pd.DataFrame(backtest_summary)
-    print(backtest_summary_dataframe.to_string(index=False)) 
-    
+    print(backtest_summary_dataframe.to_string(index=False))
+
 except Exception as e:
     log.error("Could run script, because, %s" % (str(e)))
     exit(-1)

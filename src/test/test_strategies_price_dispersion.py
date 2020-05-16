@@ -6,8 +6,8 @@ from datetime import datetime
 from exception.exceptions import ValidationError, DataError
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
 
+
 class TestStrategiesPriceDispersion(unittest.TestCase):
-    
 
     def test_init_no_tickers(self):
         with self.assertRaises(ValidationError):
@@ -26,9 +26,9 @@ class TestStrategiesPriceDispersion(unittest.TestCase):
 
     def test_api_exception(self):
         with patch.object(intrinio_data.company_api, 'get_company_historical_data',
-            side_effect=ApiException("Not Found")):
+                          side_effect=ApiException("Not Found")):
 
             strategy = PriceDispersionStrategy(['1', '2'], 2020, 2, 1)
-            
+
             with self.assertRaises(DataError):
                 strategy.__load_financial_data__()

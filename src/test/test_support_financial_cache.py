@@ -12,7 +12,7 @@ class TestFinancialCache(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_cache = FinancialCache(cls.test_path)
-        
+
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.test_path)
@@ -42,7 +42,6 @@ class TestFinancialCache(unittest.TestCase):
         self.test_cache.write(key, value)
         self.assertEqual(self.test_cache.read(key), None)
 
-
     def test_empty_value(self):
         key = 'test-key'
         value = ""
@@ -50,14 +49,12 @@ class TestFinancialCache(unittest.TestCase):
         self.test_cache.write(key, value)
         self.assertEqual(self.test_cache.read(key), None)
 
-
     def test_none_value(self):
         key = 'test-key'
         value = None
 
         self.test_cache.write(key, value)
         self.assertEqual(self.test_cache.read(key), None)
-
 
     def test_string_value(self):
         key = 'test-string'
@@ -68,13 +65,12 @@ class TestFinancialCache(unittest.TestCase):
 
     def test_dict_value(self):
         key = 'test-dict'
-        value = {"a":1, "b":2}
+        value = {"a": 1, "b": 2}
 
         self.test_cache.write(key, value)
         self.assertEqual(self.test_cache.read(key)["a"], 1)
         self.assertEqual(self.test_cache.read(key)["b"], 2)
 
-    
     def test_value_not_found(self):
         key = 'not-found'
         self.assertEqual(self.test_cache.read(key), None)
@@ -88,9 +84,11 @@ class TestFinancialCache(unittest.TestCase):
 
         small_cache_path = "./test/cache-unittest-small/"
         test_string = "x"
-        for i in range(0, 10 * 1000): test_string += "x"
+        for i in range(0, 10 * 1000):
+            test_string += "x"
 
-        small_test_cache = FinancialCache(small_cache_path, max_cache_size_bytes=100)
+        small_test_cache = FinancialCache(
+            small_cache_path, max_cache_size_bytes=100)
 
         try:
             small_test_cache.write("test-key", test_string)
@@ -98,6 +96,3 @@ class TestFinancialCache(unittest.TestCase):
 
         finally:
             shutil.rmtree(small_cache_path)
-        
-        
-
