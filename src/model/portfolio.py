@@ -8,7 +8,7 @@ from exception.exceptions import ValidationError
 from model.base_model import BaseModel
 from support import constants, util
 import dateutil.parser as parser
-from data_provider import intrinio_data
+from connectors import intrinio_data
 
 log = logging.getLogger()
 

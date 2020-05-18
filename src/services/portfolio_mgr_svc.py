@@ -37,7 +37,7 @@ def get_service_inputs(app_ns: str):
     log.info("Loading latest recommendations")
     sr = SecurityRecommendationSet.from_s3(app_ns)
 
-    if not sr.is_current():
+    if not sr.is_current(datetime.now()):
         raise ValidationError("Current recommendation set is not valid", None)
 
     try:
@@ -142,7 +142,7 @@ def publish_current_returns(updated_portfolio: object, updated: bool, app_ns: st
     price_date = parser.parse(updated_portfolio.model['price_date'])
 
     message = "Portfolio was created on: %s\n" % datetime.strftime(
-        creation_date.astimezone(get_localzone()), '%Y/%m/%d %I:%M %p')
+        creation_date.astimezone(get_localzone()), '%Y/%m/%d %I:%M %p (%Z)')
     message += "Price date is: %s\n\n" % datetime.strftime(
         price_date, '%Y/%m/%d')
     for security in updated_portfolio.model['current_portfolio']['securities']:

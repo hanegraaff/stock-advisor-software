@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from data_provider import intrinio_data
+from connectors import intrinio_data
 from exception.exceptions import ValidationError, CalculationError, DataError
 
 """

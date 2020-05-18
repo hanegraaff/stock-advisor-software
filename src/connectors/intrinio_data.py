@@ -6,7 +6,7 @@ import atexit
 from intrinio_sdk.rest import ApiException
 import os
 from exception.exceptions import DataError, ValidationError
-from data_provider import intrinio_util
+from connectors import intrinio_util
 from support.financial_cache import cache
 import logging
 import datetime

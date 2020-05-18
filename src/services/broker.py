@@ -88,8 +88,6 @@ class Broker():
             if (position != None):
                 sec['trade_state'] = 'FILLED'
                 sec['purchase_price'] = position['averagePrice']
-                if sec['purchase_date'] == None:
-                     sec['purchase_date'] = util.date_to_iso_utc_string(datetime.now())
                 sec['quantity'] = position['longQuantity']
 
         current_portfolio.validate_model()

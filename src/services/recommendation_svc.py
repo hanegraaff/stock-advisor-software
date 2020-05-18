@@ -1,9 +1,11 @@
+import traceback
+import logging
+import dateutil.parser as parser
 from datetime import datetime, timedelta
 from connectors import aws_service_wrapper
 from exception.exceptions import ValidationError, FileSystemError
 from support import constants
 from support import util
-import logging
 
 log = logging.getLogger()
 
@@ -78,3 +80,64 @@ def compute_analysis_period(current_price_date: datetime):
     last_month = datetime(current_price_date.year,
                           current_price_date.month, 1) - timedelta(days=1)
     return (last_month.year, last_month.month)
+
+
+def notify_new_recommendation(recommendation_set: object, app_ns: str):
+    '''
+        Sends an SNS notification indicating that a new recommendation has been generated
+
+        Parameters
+        ----------
+        recommendation_set: object
+            the SecurityRecommendationSet object repr
+        app_ns: str
+            The application namespace supplied to the command line
+            used to identify the appropriate CloudFormation exports
+    '''
+
+    recommnedation_month = parser.parse(
+        recommendation_set.model['valid_to'])
+
+    formatted_ticker_message = ""
+    for security in recommendation_set.model['securities_set']:
+        formatted_ticker_message += "Ticker Symbol: %s\n" % security[
+            'ticker_symbol']
+
+    sns_topic_arn = aws_service_wrapper.cf_read_export_value(
+        constants.sns_app_notifications_topic_arn(app_ns))
+    subject = "New Stock Recommendation Available"
+    message = "A New Stock Recommendation is available for the month of %s\n" % recommnedation_month.strftime(
+        "%B, %Y")
+    message += "\n\n"
+    message += formatted_ticker_message
+
+    log.info("Publishing Recommendation set to SNS topic: %s" %
+                sns_topic_arn)
+    aws_service_wrapper.sns_publish_notification(
+        sns_topic_arn, subject, message)
+
+
+def notify_error(exception: object, stack_trace: str, app_ns: str):
+    '''
+        Sends an SNS notification indicating that an error prevented the service from running
+
+        Parameters
+        ----------
+        exception: object
+            The underlining exception object
+        stack_trace: str
+            The stack trace of the error formattes uing 'traceback'
+        app_ns: str
+            The application namespace supplied to the command line
+            used to identify the appropriate CloudFormation exports
+    '''
+    sns_topic_arn = aws_service_wrapper.cf_read_export_value(
+        constants.sns_app_notifications_topic_arn(app_ns))
+    subject = "Security Recommendation Service Error"
+    message = "There was an error running the Security Recommendation Service: %s\n\n%s" % \
+        (str(exception), stack_trace)
+
+    log.info("Publishing Recommendation set to SNS topic: %s" %
+                sns_topic_arn)
+    aws_service_wrapper.sns_publish_notification(
+        sns_topic_arn, subject, message)

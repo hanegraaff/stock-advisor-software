@@ -3,13 +3,15 @@
 """
 import argparse
 import logging
+import traceback
 from datetime import datetime, timedelta
 from support import util
-from exception.exceptions import ValidationError
+from exception.exceptions import ValidationError, AWSError
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
 from strategies import calculator
 from services import recommendation_svc
 from model.ticker_file import TickerFile
+from model.recommendation_set import SecurityRecommendationSet
 from support import constants
 from support import logging_definition
 
@@ -106,6 +108,41 @@ def parse_params():
     return (environment, ticker_file_name, output_size,
             month, year, current_price_date, app_ns)
 
+
+def display_calculation_dataframe(strategy: object):
+    '''
+        Displays the results of the calculation using a Pandas dataframe,
+        using the supplied PriceDispersionStrategy object.
+        Speficially display the underlining stock rankings that lead to the
+        current recommendation
+    '''
+    recommendation_dataframe = strategy.recommendation_dataframe
+    raw_dataframe = strategy.raw_dataframe
+
+    log.info("Calculating Current Returns")
+    raw_dataframe = calculator.mark_to_market(
+        strategy.raw_dataframe, current_price_date)
+    recommendation_dataframe = calculator.mark_to_market(
+        strategy.recommendation_dataframe, current_price_date)
+
+    log.info("")
+    log.info("Recommended Securities")
+    log.info(util.format_dict(recommendation_set.to_dict()))
+    log.info("")
+
+    log.info("Recommended Securities Return: %.2f%%" %
+             (recommendation_dataframe['actual_return'].mean() * 100))
+    log.info("Average Return: %.2f%%" %
+             (raw_dataframe['actual_return'].mean() * 100))
+    log.info("")
+    log.info("Analysis Period - %d/%d, Actual Returns as of: %s" %
+             (month, year, datetime.strftime(current_price_date, '%Y/%m/%d')))
+
+    # uUsing the logger will mess up the header of this table
+    print(raw_dataframe[['analysis_period', 'ticker', 'dispersion_stdev_pct',
+                         'analyst_expected_return', 'actual_return', 'decile']].to_string(index=False))
+
+
 #
 # Main script
 #
@@ -125,44 +162,43 @@ try:
         log.info("reading ticker file from local filesystem")
         ticker_list = TickerFile.from_local_file(
             constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
-    else:
-        log.info("reading ticker file from local s3 bucket")
+        
+        strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
+        log.info("Performing Recommendation Algorithm")
+        recommendation_set = strategy.generate_recommendation()
+        display_calculation_dataframe(strategy)
+    else: #environment == "PRODUCTION"
+        log.info("Reading ticker file from local s3 bucket")
         ticker_list = TickerFile.from_s3_bucket(
             ticker_file_name, app_ns).ticker_list
 
-    strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
+        log.info("Loading existing recommendation set from S3")
+        recommendation_set = None
 
-    log.info("Performing Recommendation Algorithm")
-    recommendation_set = strategy.generate_recommendation()
-    recommendation_dataframe = strategy.recommendation_dataframe
-    raw_dataframe = strategy.raw_dataframe
+        try:
+            recommendation_set = SecurityRecommendationSet.from_s3(app_ns)            
+        except AWSError as awe:
+            if not awe.resource_not_found(): raise awe
+            log.info("No recommendation set was found in S3.")
 
-    log.info("Pricing securities")
-    raw_dataframe = calculator.mark_to_market(
-        strategy.raw_dataframe, current_price_date)
-    recommendation_dataframe = calculator.mark_to_market(
-        strategy.recommendation_dataframe, current_price_date)
+        if recommendation_set == None  \
+            or not recommendation_set.is_current(datetime.now()):
 
-    log.info("")
-    log.info("Recommended Securities")
-    log.info(util.format_dict(recommendation_set.to_dict()))
-    log.info("")
+            log.info("Creating new recommendation set")
 
-    log.info("Recommended Securities Return: %.2f%%" %
-             (recommendation_dataframe['actual_return'].mean() * 100))
-    log.info("Average Return: %.2f%%" %
-             (raw_dataframe['actual_return'].mean() * 100))
-    log.info("")
-    log.info("Analysis Period - %d/%d, Actual Returns as of: %s" %
-             (month, year, datetime.strftime(current_price_date, '%Y/%m/%d')))
+            strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
+            log.info("Performing Recommendation Algorithm")
+            recommendation_set = strategy.generate_recommendation()
+            display_calculation_dataframe(strategy)
 
-    print(raw_dataframe[['analysis_period', 'ticker', 'dispersion_stdev_pct',
-                         'analyst_expected_return', 'actual_return', 'decile']].to_string(index=False))
-
-    if environment == "PRODUCTION":
-        recommendation_set.save_to_s3(app_ns)
-        recommendation_set.send_sns_notification(app_ns)
+            recommendation_set.save_to_s3(app_ns)
+            recommendation_svc.notify_new_recommendation(recommendation_set, app_ns)
+        else:
+            log.info("Recommendation set is still valid. There is nothing to do")
 
 except Exception as e:
+    stack_trace = traceback.format_exc()
     log.error("Could run script, because: %s" % (str(e)))
-    exit(-1)
+    log.error(stack_trace)
+
+    recommendation_svc.notify_error(e, stack_trace, app_ns)

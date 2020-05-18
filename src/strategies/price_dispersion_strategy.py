@@ -1,6 +1,6 @@
 import pandas as pd
-from datetime import datetime
-from data_provider import intrinio_data, intrinio_util
+from datetime import datetime, timedelta
+from connectors import intrinio_data, intrinio_util
 import logging
 from support import util
 from exception.exceptions import BaseError, ValidationError, DataError
@@ -25,8 +25,8 @@ class PriceDispersionStrategy():
         {
             "set_id": "bda2de4e-7ec6-11ea-86e7-acbc329ef75f",
             "creation_date": "2020-04-15T03:11:03.841242+00:00",
-            "analysis_start_date": "2020-03-01T00:00:00-05:00",
-            "analysis_end_date": "2020-03-31T00:00:00-04:00",
+            "valid_from": "2020-03-01T00:00:00-05:00",
+            "valid_to": "2020-03-31T00:00:00-04:00",
             "price_date": "2020-03-31T00:00:00-04:00",
             "strategy_name": "PRICE_DISPERSION",
             "security_type": "US Equities",
@@ -217,7 +217,13 @@ class PriceDispersionStrategy():
         for row in self.recommendation_dataframe.itertuples(index=False):
             priced_securities[row.ticker] = row.analysis_price
 
-        sr = SecurityRecommendationSet.from_parameters(datetime.now(), self.analysis_start_date, self.analysis_end_date, self.analysis_end_date,
+        # determine the recommendation valid date range        
+        valid = self.analysis_end_date + timedelta(days=1)
+
+        (valid_from, valid_to) = intrinio_util.get_month_date_range(
+            valid.year, valid.month)
+
+        sr = SecurityRecommendationSet.from_parameters(datetime.now(), valid_from, valid_to, self.analysis_end_date,
                                                        self.STRATEGY_NAME, "US Equities", priced_securities)
 
         return sr

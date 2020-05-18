@@ -167,7 +167,7 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
                     "currentDayProfitLoss": 0.0,
                     "currentDayProfitLossPercentage": 0.0,
                     "longQuantity": 1.0,
-                    "settledLongQuantity": 8.0,
+                    "settledLongQuantity": 1.0,
                     "settledShortQuantity": 0.0,
                     "instrument": {
                         "assetType": "EQUITY",

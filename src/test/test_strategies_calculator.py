@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from datetime import datetime
 import pandas as pd
-from data_provider import intrinio_data
+from connectors import intrinio_data
 from exception.exceptions import CalculationError, ValidationError, DataError
 from strategies import calculator
 

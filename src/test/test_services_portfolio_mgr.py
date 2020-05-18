@@ -85,8 +85,8 @@ class TestServicePortfolioManager(unittest.TestCase):
     sr_dict = {
         "set_id": "yyyy",
         "creation_date": "2020-09-01T04:56:57.612693+00:00",
-        "analysis_start_date": "2019-08-01T04:00:00+00:00",
-        "analysis_end_date": "2019-08-31T04:00:00+00:00",
+        "valid_from": "2019-08-01T04:00:00+00:00",
+        "valid_to": "2019-08-31T04:00:00+00:00",
         "price_date": "2019-09-01T02:34:12.876012+00:00",
         "strategy_name": "PRICE_DISPERSION",
         "security_type": "US Equities",

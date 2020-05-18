@@ -61,7 +61,7 @@ the API must be saved to the environment like so:
 
 ### TDAmeritrade Keys
 Additionally, you will need to authenticate with TDAmeritrade in order to buy and sell securities. This software will treat the account as its own, meaning that any
-positions that are not part of its portolio, will be unwound. Specifically, it will
+positions that are not part of its portfolio, will be unwound. Specifically, it will
 execute trades in a way that positions will always match those in the recommended portfolio.
 
 TDAmeritrade uses OAuth for authentication, and the initial setup process is described
@@ -195,9 +195,11 @@ stocks resulting from the analysis.
 The script can be run in two modes, representing different runtime environments.
 
 ### Production mode
-**Production** mode will automatically determine the analysis period based on the calendar date, and display actual returns using the same. It will also use S3 to read the input ticker file and store results. This is the mode that must be used when running in ECS.
+**Production** mode will automatically determine the analysis period based on the calendar date, and display actual returns using the same. It will also use S3 to read the inputs and store results. This is the mode that must be used when running in ECS.
 
 In this mode the service will identify the appropriate AWS infrastructure using a combination of CloudFormation exports and a namespace suppled to the command line (```-app_namespace```) used to avoid collisions. So for example, if the application namespace is set to ```sa```, the S3 bucket will be identified using the ```sa-data-bucket-name``` export. These are defined in the ```support.constants``` module.
+
+Finally, the recommendation set will be stored in s3, and a new one will only be created when the existing one expires. If the recommendation set is still valid, the script will quietly exit
 
 ```
 src >>python securities_recommendation_svc.py production -h
@@ -259,8 +261,8 @@ The main output is a JSON Document with the portfolio recommendation.
 [INFO] - {
     "set_id": "bda2de4e-7ec6-11ea-86e7-acbc329ef75f",
     "creation_date": "2020-04-15T03:11:03.841242+00:00",
-    "analysis_start_date": "2020-03-01T00:00:00-05:00",
-    "analysis_end_date": "2020-03-31T00:00:00-04:00",
+    "valid_from": "2020-03-01T00:00:00-05:00",
+    "valid_to": "2020-03-31T00:00:00-04:00",
     "price_date": "2020-03-31T00:00:00-04:00",
     "strategy_name": "PRICE_DISPERSION",
     "security_type": "US Equities",
@@ -316,8 +318,7 @@ analysis_period ticker  dispersion_stdev_pct  analyst_expected_return  actual_re
          2019-8      V                 5.398                    0.095         -0.009       0
 ```
 
-When a new portfolio is generated a SNS event will be published resulting in the
-below email.
+When a new portfolio is generated and the service is running in ```production``` mode, an SNS event will be published resulting in the below email/sms notification.
 
 ```
 From: sa-app-notification-topic (no-reply@sns.amazonaws.com)
@@ -331,8 +332,20 @@ Ticker Symbol: GE
 Ticker Symbol: XOM
 ```
 
+The previous output illustrates what happens when a new recommendation is created. While running in ```test``` mode always creates a new recommendation, ```production``` mode will first check for an existing recommendation in S3 and only create a new one if one cannot be found or if it is expired based on ```valid_from``` ```valid_to``` date range. If the recommendation is still valid, the service will quietly exit and the output will look like this:
 
-Finally, when running in ```production``` mode, the service will also store results in S3
+```
+[INFO] - Parameters:
+[INFO] - Environment: PRODUCTION
+[INFO] - Ticker File: djia30.txt
+[INFO] - Output Size: 3
+[INFO] - Analysis Month: 4
+[INFO] - Analysis Year: 2020
+[INFO] - Reading ticker file from local s3 bucket
+[INFO] - Loading existing recommendation set from S3
+[INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/security-recommendation-set.json --> ./app_data/security-recommendation-set.json
+[INFO] - Recommendation set is still valid. There is nothing to do
+```
 
 ## Caching of financial data
 All financial data is saved to a local cache to reduce throttling and API limits when using the Intrinio API. As of this version the data is set to never expire, and the cache will grow to a maximum size of 4GB.
@@ -348,7 +361,7 @@ To delete or reset the contents of the cache, simply delete entire ```./financia
 
 
 ## Backtesting
-It is possible to backtest this strategy by running the ```price_dispersion_backtest.py``` script. It works by running the strategy from 05/2019 to 12/2019 and comparing the returns of the selected portfolio with the average of the list supplied to it.
+It is possible to backtest this strategy by running the ```price_dispersion_backtest.py``` script. It works by running the strategy from 05/2019 to 1/2020 and comparing the returns of the selected portfolio with the average of the list supplied to it.
 
 Example:
 
@@ -357,7 +370,6 @@ Example:
 [INFO] - Parameters:
 [INFO] - Ticker File: djia30.txt
 [INFO] - Output Size: 3
-
 investment_period  ticker_sample_size  avg_ret_1M  sel_ret_1M  avg_ret_2M  sel_ret_2M  avg_ret_3M  sel_ret_3M
           2019/05                  12       8.09%       9.95%      11.17%      12.31%       8.74%       5.49%
           2019/06                  26       2.35%       3.56%      -2.00%     -10.78%       0.38%      -4.30%
@@ -367,8 +379,9 @@ investment_period  ticker_sample_size  avg_ret_1M  sel_ret_1M  avg_ret_2M  sel_r
           2019/10                  27       2.65%       5.34%       5.01%       5.97%       6.43%      14.98%
           2019/11                  26       2.26%       0.68%       3.53%       8.88%      -8.55%      -7.02%
           2019/12                  25       1.46%       5.60%     -10.80%      -8.54%     -19.59%     -20.31%
+          2020/01                  27     -10.03%     -10.39%     -20.47%     -21.08%     -12.68%     -20.63%
 investment_period ticker_sample_size  avg_tot_1M  sel_tot_1M  avg_tot_2M  sel_tot_2M  avg_tot_3M  sel_tot_3M
-          ----/--                 --      18.59%      31.10%      15.05%      39.22%       2.56%      35.91%
+          ----/--                 --       8.57%      20.71%      -5.42%      18.14%     -10.12%      15.29%
 ```
 
 Each line reports the returns for each montly portfolio selection at a 1 month, 2 month and 3 month horizon.
@@ -414,7 +427,7 @@ optional arguments:
                         Number of securties that will be part of the portfolio
 ```
 
-where ```app_namespace``` has the same maning as it does for the recommnedation service, namly to identify AWS resources based on the CloudFormation exports exposed by the infrastructure and automations scripts. ```portfolio_size``` on on the other hand will determine the size of the portfolio by selecting a subset of the recommendation.
+where ```app_namespace``` has the same meaning as it does for the recommendation service, namely to identify AWS resources based on the CloudFormation exports exposed by the infrastructure and automations scripts. ```portfolio_size``` on on the other hand will determine the size of the portfolio by selecting a subset of the recommendation.
 
 For example:
 
@@ -492,7 +505,7 @@ After updating the portfolio a notification will be sent to SNS with the selecte
 From: sa-app-notification-topic (no-reply@sns.amazonaws.com)
 To: Me
 
-Portfolio was created on: 2020/05/11 08:33 PM
+Portfolio was created on: 2020/05/11 08:33 PM (UTC)
 Price date is: 2020/05/08
 
 Symbol: BA
@@ -592,30 +605,30 @@ This command will execute all unit tests and run the coverage report (using cove
 
 ```
 src >>./test.sh
-.................................................................................................................................................
+...................................................................................................................................................
 ----------------------------------------------------------------------
-Ran 145 tests in 0.331s
+Ran 147 tests in 0.298s
 
 OK
 Name                                      Stmts   Miss  Cover
 -------------------------------------------------------------
 connectors/aws_service_wrapper.py            70      7    90%
+connectors/intrinio_data.py                 143     40    72%
+connectors/intrinio_util.py                  27      0   100%
 connectors/td_ameritrade.py                 146     20    86%
-data_provider/intrinio_data.py              143     40    72%
-data_provider/intrinio_util.py               27      0   100%
 exception/exceptions.py                      40      1    98%
 model/base_model.py                          59     10    83%
 model/portfolio.py                           78      2    97%
-model/recommendation_set.py                  45      0   100%
+model/recommendation_set.py                  33      0   100%
 model/ticker_file.py                         44     10    77%
-services/broker.py                          143     10    93%
+services/broker.py                          140     10    93%
 services/portfolio_mgr_svc.py                71      1    99%
-services/recommendation_svc.py               29      3    90%
+services/recommendation_svc.py               49      3    94%
 strategies/calculator.py                     19      0   100%
-strategies/price_dispersion_strategy.py      68     29    57%
+strategies/price_dispersion_strategy.py      70     31    56%
 support/constants.py                         14      0   100%
 support/financial_cache.py                   33      2    94%
 support/util.py                              29      1    97%
 -------------------------------------------------------------
-TOTAL                                      1058    136    87%
+TOTAL                                      1065    138    87%
 ```

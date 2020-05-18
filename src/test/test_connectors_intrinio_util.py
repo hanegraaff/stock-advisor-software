@@ -1,9 +1,9 @@
 import unittest
-from data_provider import intrinio_util
+from connectors import intrinio_util
 from exception.exceptions import ValidationError
 
 
-class TestDataProviderIntrinioUtil(unittest.TestCase):
+class TestConnectorsIntrinioUtil(unittest.TestCase):
 
     '''
         get_year_date_range tests

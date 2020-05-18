@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 from intrinio_sdk.rest import ApiException
-from data_provider import intrinio_data
+from connectors import intrinio_data
 from datetime import datetime
 from exception.exceptions import ValidationError, DataError
 from strategies.price_dispersion_strategy import PriceDispersionStrategy

@@ -53,8 +53,8 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         d = {
             "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
             "creation_date": "2020-09-01T04:56:57.612693+00:00",
-            "analysis_start_date": "2019-08-01T04:00:00+00:00",
-            "analysis_end_date": "2019-08-31T04:00:00+00:00",
+            "valid_from": "2019-08-01T04:00:00+00:00",
+            "valid_to": "2019-08-31T04:00:00+00:00",
             "price_date": "2019-09-01T02:34:12.876012+00:00",
             "strategy_name": "PRICE_DISPERSION",
             "security_type": "US Equities",
@@ -82,7 +82,7 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         d = {
             "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
             "creation_date": "2020-09-01T04:56:57.612693+00:00",
-            "analysis_start_date": "2019-08-01T04:00:00+00:00",
+            "valid_from": "2019-08-01T04:00:00+00:00",
             "price_date": "2019-09-01T02:34:12.876012+00:00",
             "strategy_name": "PRICE_DISPERSION",
             "security_type": "US Equities"
@@ -91,11 +91,7 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         with self.assertRaises(ValidationError):
             SecurityRecommendationSet.from_dict(d)
 
-    def test_is_current_false(self):
-        '''
-            Test that a recommendation set that is several months
-            old is reported as not current
-        '''
+    def test_is_current_future_date(self):
 
         # Create a recommendation set from the past (2019/8)
         p = SecurityRecommendationSet.from_parameters(
@@ -112,23 +108,15 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }
         )
 
-        self.assertFalse(p.is_current())
+        self.assertFalse(p.is_current(datetime(2019, 9, 1, 0, 0, 0),))
 
-    def test_is_current_true(self):
-        '''
-            Test that a recommendation from last month
-            relative to the current date is reported as current
-        '''
-        now = datetime.now()
-        last = now - timedelta(days=1)
-
-        analysis_date = datetime(now.year, last.month, 1, 0, 0, 0)
+    def test_is_current_past_date(self):
 
         # Create a recommendation set from the past (2019/8)
         p = SecurityRecommendationSet.from_parameters(
             datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
-            analysis_date,
-            analysis_date,
+            datetime(2019, 8, 1, 0, 0, 0),
+            datetime(2019, 8, 31, 0, 0, 0),
             datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc),
             "PRICE_DISPERSION",
             "US Equities",
@@ -139,16 +127,23 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }
         )
 
-        self.assertTrue(p.is_current())
+        self.assertFalse(p.is_current(datetime(2019, 7, 30, 0, 0, 0),))
 
-    def test_send_sns_notification_with_boto_error(self):
-        with patch.object(aws_service_wrapper, 'cf_read_export_value',
-                          return_value="some_sns_arn"), \
-            patch.object(aws_service_wrapper, 'sns_publish_notification',
-                         side_effect=AWSError("test exception", None)):
+    def test_is_current_current_date(self):
+    
+        # Create a recommendation set from the past (2019/8)
+        p = SecurityRecommendationSet.from_parameters(
+            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
+            datetime(2019, 8, 1, 0, 0, 0),
+            datetime(2019, 8, 31, 0, 0, 0),
+            datetime(2019, 9, 1, 2, 34, 12, tzinfo=timezone.utc),
+            "PRICE_DISPERSION",
+            "US Equities",
+            {
+                "GE": 123.45,
+                "INTC": 123.45,
+                "AAPL": 123.45
+            }
+        )
 
-            with self.assertRaises(AWSError):
-                s = SecurityRecommendationSet.from_parameters(datetime.now(), datetime.now(
-                ), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
-
-                s.send_sns_notification("sa")
+        self.assertTrue(p.is_current(datetime(2019, 8, 15, 0, 0, 0),))

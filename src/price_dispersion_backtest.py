@@ -7,7 +7,7 @@ from datetime import datetime
 from datetime import timedelta
 from support import util
 from exception.exceptions import BaseError
-from data_provider import intrinio_util
+from connectors import intrinio_util
 from support.financial_cache import cache
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
 from strategies import calculator
@@ -122,7 +122,7 @@ try:
     backtest(2019, 10)
     backtest(2019, 11)
     backtest(2019, 12)
-    #backtest(2020, 1)
+    backtest(2020, 1)
 
     backtest_dataframe = pd.DataFrame(backtest_report)
     pd.options.display.float_format = '{:.2f}%'.format

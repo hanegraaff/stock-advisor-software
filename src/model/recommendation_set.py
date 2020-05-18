@@ -21,7 +21,7 @@ class SecurityRecommendationSet(BaseModel):
     schema = {
         "type": "object",
         "required": [
-            "set_id", "creation_date", "analysis_start_date", "analysis_end_date",
+            "set_id", "creation_date", "valid_from", "valid_to",
             "price_date", "strategy_name", "security_type", "securities_set"
         ],
         "properties": {
@@ -30,11 +30,11 @@ class SecurityRecommendationSet(BaseModel):
                 "type": "string",
                 "format": "date-time"
             },
-            "analysis_start_date": {
+            "valid_from": {
                 "type": "string",
                 "format": "date-time"
             },
-            "analysis_end_date": {
+            "valid_to": {
                 "type": "string",
                 "format": "date-time"
             },
@@ -76,8 +76,8 @@ class SecurityRecommendationSet(BaseModel):
         pass
 
     @classmethod
-    def from_parameters(cls, creation_date: datetime, analysis_start_date: datetime,
-                        analysis_end_date: datetime, price_date: datetime,
+    def from_parameters(cls, creation_date: datetime, valid_from: datetime,
+                        valid_to: datetime, price_date: datetime,
                         strategy_name: str, security_type: str, securities_set: dict):
         '''
             Initializes This class by supplying all required parameters.
@@ -100,8 +100,8 @@ class SecurityRecommendationSet(BaseModel):
             cls.model = {
                 "set_id": str(uuid.uuid1()),
                 "creation_date": util.date_to_iso_utc_string(creation_date),
-                "analysis_start_date": util.date_to_iso_string(analysis_start_date),
-                "analysis_end_date": util.date_to_iso_string(analysis_end_date),
+                "valid_from": util.date_to_iso_string(valid_from),
+                "valid_to": util.date_to_iso_string(valid_to),
                 "price_date": util.date_to_iso_string(price_date),
                 "strategy_name": strategy_name,
                 "security_type": security_type,
@@ -119,47 +119,15 @@ class SecurityRecommendationSet(BaseModel):
 
         return cls.from_dict(cls.model)
 
-    def is_current(self):
+    def is_current(self, current_date: datetime):
         """
             Returns True if this recommendation set is still current.
-
-            A set is current as long as the analysis end date falls in the
-            previous month relative to the calendar date
         """
-        valid_until = parser.parse(
-            self.model['analysis_end_date']) + timedelta(days=1)
-        current_month = datetime.now().month
+        valid_from = parser.parse(
+            self.model['valid_from'])
 
-        return valid_until.month == current_month
+        valid_to = parser.parse(
+            self.model['valid_to'])
+        
+        return valid_from.timestamp() <= current_date.timestamp() <= valid_to.timestamp()
 
-    def send_sns_notification(self, app_ns: str):
-        '''
-            Sends an SNS notification indicating that a new recommendation has been generated
-
-            Parameters
-            ----------
-            app_ns : str
-                The application namespace supplied to the command line
-                used to identify the appropriate CloudFormation exports
-        '''
-
-        recommnedation_month = parser.parse(
-            self.model['analysis_end_date']) + timedelta(days=1)
-
-        formatted_ticker_message = ""
-        for security in self.model['securities_set']:
-            formatted_ticker_message += "Ticker Symbol: %s\n" % security[
-                'ticker_symbol']
-
-        sns_topic_arn = aws_service_wrapper.cf_read_export_value(
-            constants.sns_app_notifications_topic_arn(app_ns))
-        subject = "New Stock Recommendation Available"
-        message = "A New Stock Recommendation is available for the month of %s\n" % recommnedation_month.strftime(
-            "%B")
-        message += "\n\n"
-        message += formatted_ticker_message
-
-        log.info("Publishing Recommendation set to SNS topic: %s" %
-                 sns_topic_arn)
-        aws_service_wrapper.sns_publish_notification(
-            sns_topic_arn, subject, message)
