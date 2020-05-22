@@ -1,6 +1,6 @@
 """Author: Mark Hanegraaff -- 2020
 """
-
+# pylint: disable=invalid-name
 import requests
 import os
 import json
@@ -13,6 +13,12 @@ import dateutil.parser as parser
 from datetime import timedelta
 from exception.exceptions import ValidationError, TradeError
 from support import util
+
+"""
+    This module wraps the TDAmeritrade APIs into a simple SDK.
+    APIs are called using the "requests" package, and all Exceptions
+    and re-raised as TradeErrors
+"""
 
 
 log = logging.getLogger()
@@ -63,7 +69,7 @@ def __validate_response(url: str, response: object):
         validates a request's status code and throws a TradeError
         if not a 200 or 201
     '''
-    if response.status_code not in (200, 201):
+    if not response.ok:
         raise TradeError("Invalid response while calling %s: %s" %
                          (url, response.text), None, response)
 
@@ -85,20 +91,20 @@ def request(method: str, url: str, params: dict, payload: dict):
             request payload (data)
     '''
     try:
-        r = requests.request(method, url, params=params, json=payload,
+        api_response = requests.request(method, url, params=params, json=payload,
                              headers=AUTH_HEADER(), timeout=REQUEST_TIMEOUT)
     except Exception as e:
-        raise TradeError("Could not execute POST to %s" % url, e, None)
+        raise TradeError("Could not execute %s to %s" % (method, url), e, None)
 
-    __validate_response(url, r)
+    __validate_response(url, api_response)
 
     try:
-        response = r.json()
-        log.debug("API Response: %s" % util.format_dict(response))
-        return (r.headers, response)
+        body = api_response.json()
+        log.debug("API Response: %s" % util.format_dict(body))
+        return (api_response.headers, body)
     except:
         log.debug("API Response: None")
-        return (r.headers, {})
+        return (api_response.headers, {})
 
 
 def get_credentials():
@@ -399,7 +405,7 @@ def get_latest_equity_price(ticker: str):
         and cancels the order.
     '''
 
-    r = request('GET', 'https://api.tdameritrade.com/v1/marketdata/%s/quotes' %
+    price_response = request('GET', 'https://api.tdameritrade.com/v1/marketdata/%s/quotes' %
             ticker, None, None)[1]
     
-    return r[ticker]['lastPrice']
+    return price_response[ticker]['lastPrice']

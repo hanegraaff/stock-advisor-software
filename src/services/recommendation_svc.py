@@ -116,28 +116,3 @@ def notify_new_recommendation(recommendation_set: object, app_ns: str):
     aws_service_wrapper.sns_publish_notification(
         sns_topic_arn, subject, message)
 
-
-def notify_error(exception: object, stack_trace: str, app_ns: str):
-    '''
-        Sends an SNS notification indicating that an error prevented the service from running
-
-        Parameters
-        ----------
-        exception: object
-            The underlining exception object
-        stack_trace: str
-            The stack trace of the error formattes uing 'traceback'
-        app_ns: str
-            The application namespace supplied to the command line
-            used to identify the appropriate CloudFormation exports
-    '''
-    sns_topic_arn = aws_service_wrapper.cf_read_export_value(
-        constants.sns_app_notifications_topic_arn(app_ns))
-    subject = "Security Recommendation Service Error"
-    message = "There was an error running the Security Recommendation Service: %s\n\n%s" % \
-        (str(exception), stack_trace)
-
-    log.info("Publishing Recommendation set to SNS topic: %s" %
-                sns_topic_arn)
-    aws_service_wrapper.sns_publish_notification(
-        sns_topic_arn, subject, message)

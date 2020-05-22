@@ -29,6 +29,7 @@ This project contains the Stock Advisor application software. It is organized in
     * [Trading Strategy](#trading-strategy)
     * [Running the service from the command line](#running-the-portfolio-manager-from-the-command-line)
     * [Output](#portfolio-manager-output)
+* [Notifications](#notifications)
 * [Running the services](#running-the-services)
     * [Running the service as a docker image](#running-the-service-as-a-docker-image)
     * [Running the service in ECS](#running-the-service-in-ECS)
@@ -341,7 +342,7 @@ The previous output illustrates what happens when a new recommendation is create
 [INFO] - Output Size: 3
 [INFO] - Analysis Month: 4
 [INFO] - Analysis Year: 2020
-[INFO] - Reading ticker file from local s3 bucket
+[INFO] - Reading ticker file from s3 bucket
 [INFO] - Loading existing recommendation set from S3
 [INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/security-recommendation-set.json --> ./app_data/security-recommendation-set.json
 [INFO] - Recommendation set is still valid. There is nothing to do
@@ -406,8 +407,8 @@ The current strategy is to buy and hold a portfolio based on the most recent rec
 
 1) Read the latest recommendations and portfolio objects from S3.
 2) Reprice the portfolio and update it based on the contents of the recommendations. If the portfolio recommendations have changed then create a new portfolio, otherwise keep the existing one.
-3) Check to see of the Equities market is open and if is, materialize the portfolio. This means taking the securities in it, which represent the desired state, and execute the trades necessary to create matching positions.
-4) If there are any errors, and only a portion of the portfilio could be fulfilled, the will be retried the next time the service runs.
+3) Check to see of the Equities market is open and if it is, materialize the portfolio. This means taking the securities in it, which represent the desired state, and execute the trades necessary to create matching positions.
+4) If there are any errors, and only a portion of the portfolio could be materialized, the same actions will be retried the next time the service runs.
 
 
 ## Running the Portfolio Manager from the command line
@@ -444,6 +445,13 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
 [INFO] - -app_namespace: sa
 [INFO] - -portfolio_size: 3
 [INFO] - Loading latest recommendations
+[INFO] - Testing AWS connectivity
+[INFO] - AWS connectivity test successful
+[INFO] - Testing Intrinio connectivity
+[INFO] - Intrinio connectivity test successful
+[INFO] - Testing TDAmeritrade connectivity
+[INFO] - Generating TDAmeritrade refresh token
+[INFO] - TDAmeritrade connectivity test successful
 [INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/security-recommendation-set.json --> ./app_data/security-recommendation-set.json
 [INFO] - Loading current portfolio
 [INFO] - Downloading Portfolio: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/portfolios/current-portfolio.json --> ./app_data/current-portfolio.json
@@ -451,7 +459,6 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
 [INFO] - Repricing portfolio
 [INFO] - Repriced portfolio for date of 2020-05-08 00:00:00
 [INFO] - Portfolio is still current. No rebalancing necessary
-[INFO] - Generating TDAmeritrade refresh token
 [INFO] - Market is closed. Nothing to trade
 [INFO] - updated portfolio: {
     "portfolio_id": "3a53394e-93e8-11ea-b6ab-8217042f1400",
@@ -469,7 +476,7 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
                 "current_price": 133.44,
                 "current_returns": 0.03271078920417869,
                 "trade_state": "FILLED",
-                "order_id": null
+                "order_id": 123456
             },
             {
                 "ticker_symbol": "GE",
@@ -479,7 +486,7 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
                 "current_price": 6.29,
                 "current_returns": 0.015298891726201802,
                 "trade_state": "FILLED",
-                "order_id": null
+                "order_id": 234567
             },
             {
                 "ticker_symbol": "XOM",
@@ -489,7 +496,7 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
                 "current_price": 46.18,
                 "current_returns": 0.010380356350518483,
                 "trade_state": "FILLED",
-                "order_id": null
+                "order_id": 345678
             }
         ]
     }
@@ -519,6 +526,32 @@ Current Price: 6.29 (+2%)
 Symbol: XOM
 Purchase Price: 45.70
 Current Price: 46.18 (+1%)
+```
+# Notifications
+Both services will publish SNS notification in case of important events. Specifically, it will publish events in the following scenarios:
+
+1) When the Recommendation Service Produces a new recommendation
+2) Daily, showing the portfolio's current positions and returns.
+3) When an error occurs that prevents either service from working.
+
+The first two notifications are described in more details in the previous sections. Error notifications, on the other hand tend to be more generic, and are really intended to bring attention to the fact that the system is unstable. This is important because for the most part things are running autonomously and don't require any special interaction on behalf of the user.
+
+Each notification includes an error message and a stack trace and are intended for a technical audience. Future version of this software will introduce a UI or other ways of interacting with the system that won't necessarily rely on the AWS console.
+
+The following is an example of an error notification that is produced by the portfolio manager when the current recommendation set has expired (recommendations always come with expiration dates).
+
+```
+From: sa-app-notification-topic (no-reply@sns.amazonaws.com)
+To: Me
+
+There was an error running the Portfolio Manager Service: Validation Error: Current recommendation set is not valid
+
+Traceback (most recent call last):
+ File "portfolio_manager_svc.py", line 54, in <module>
+   (current_portfolio, sr) = portfolio_mgr_svc.get_service_inputs(app_ns)
+ File "/Users/hanegraaff/development/git-projects/stock-advisor/src/services/portfolio_mgr_svc.py", line 41, in get_service_inputs
+   raise ValidationError("Current recommendation set is not valid", None)
+exception.exceptions.ValidationError: Validation Error: Current recommendation set is not valid
 ```
 
 # Running the Services
@@ -605,15 +638,16 @@ This command will execute all unit tests and run the coverage report (using cove
 
 ```
 src >>./test.sh
-...................................................................................................................................................
+............................................................................................................................................................
 ----------------------------------------------------------------------
-Ran 147 tests in 0.298s
+Ran 156 tests in 0.288s
 
 OK
 Name                                      Stmts   Miss  Cover
 -------------------------------------------------------------
-connectors/aws_service_wrapper.py            70      7    90%
-connectors/intrinio_data.py                 143     40    72%
+connectors/aws_service_wrapper.py            76      7    91%
+connectors/connector_test.py                 31      3    90%
+connectors/intrinio_data.py                 152     42    72%
 connectors/intrinio_util.py                  27      0   100%
 connectors/td_ameritrade.py                 146     20    86%
 exception/exceptions.py                      40      1    98%
@@ -622,13 +656,13 @@ model/portfolio.py                           78      2    97%
 model/recommendation_set.py                  33      0   100%
 model/ticker_file.py                         44     10    77%
 services/broker.py                          140     10    93%
-services/portfolio_mgr_svc.py                71      1    99%
-services/recommendation_svc.py               49      3    94%
+services/portfolio_mgr_svc.py                73      1    99%
+services/recommendation_svc.py               43      3    93%
 strategies/calculator.py                     19      0   100%
-strategies/price_dispersion_strategy.py      70     31    56%
+strategies/price_dispersion_strategy.py      72     31    57%
 support/constants.py                         14      0   100%
 support/financial_cache.py                   33      2    94%
 support/util.py                              29      1    97%
 -------------------------------------------------------------
-TOTAL                                      1065    138    87%
+TOTAL                                      1109    143    87%
 ```

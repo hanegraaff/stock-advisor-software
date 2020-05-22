@@ -1,9 +1,19 @@
+"""portfolio_manager_svc.py
+
+Portfolio Manager Main Script
+
+Complete documentation can be found here:
+https://github.com/hanegraaff/stock-advisor-software
+"""
+
+# pylint: disable=invalid-name
 import argparse
 import logging
+import traceback
 from datetime import datetime
 from model.recommendation_set import SecurityRecommendationSet
 from support import constants, util, logging_definition
-from connectors import td_ameritrade
+from connectors import connector_test, td_ameritrade, aws_service_wrapper
 from model.portfolio import Portfolio
 from exception.exceptions import AWSError
 from services import portfolio_mgr_svc
@@ -37,6 +47,10 @@ def parse_params():
     app_ns = args.app_namespace
     portfolio_size = args.portfolio_size
 
+    if portfolio_size <= 0:
+        log.error("Portfolio Size (-portfolio_size) must be a positive number")
+        exit(-1)
+
     return (app_ns, portfolio_size)
 
 try:
@@ -45,6 +59,10 @@ try:
     log.info("Application Parameters")
     log.info("-app_namespace: %s" % app_ns)
     log.info("-portfolio_size: %d" % portfolio_size)
+
+    # test all connectivity upfront, so if there any issues
+    # the problem becomes more apparent
+    connector_test.test_all_connectivity()
 
     (current_portfolio, sr) = portfolio_mgr_svc.get_service_inputs(app_ns)
 
@@ -97,5 +115,11 @@ try:
 
 
 except Exception as e:
-    log.error("Could not run Portfolio Manager, because: %s" % str(e))
+    stack_trace = traceback.format_exc()
+    log.error("Could run script, because: %s" % (str(e)))
+    log.error(stack_trace)
+
+    aws_service_wrapper.notify_error(e, "Portfolio Manager Service",
+            stack_trace, app_ns)
+
     raise e

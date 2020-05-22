@@ -1,3 +1,7 @@
+"""Author: Mark Hanegraaff -- 2020
+
+Pytest driver. All unit tests are run from this script.
+"""
 import unittest
 import logging
 from test.test_exceptions import TestExceptions
@@ -9,6 +13,7 @@ from test.test_connectors_aws_service_wrapper import TestConnectorsAWSServiceWra
 from test.test_connectors_td_ameritrade import TestConnectorsTDAmeritrade
 from test.test_connectors_intrinio_util import TestConnectorsIntrinioUtil
 from test.test_connectors_intrinio_data import TestConnectorsIntrinioData
+from test.test_connector_connector_test import TestConnectorsTest
 from test.test_services_recommendation import TestServicesRecommendation
 from test.test_services_portfolio_mgr import TestServicePortfolioManager
 from test.test_services_broker import TestBroker

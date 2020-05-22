@@ -1,3 +1,4 @@
+# pylint: disable=invalid-name
 import unittest
 import botocore
 from copy import deepcopy

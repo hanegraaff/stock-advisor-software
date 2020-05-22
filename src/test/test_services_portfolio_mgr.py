@@ -102,6 +102,14 @@ class TestServicePortfolioManager(unittest.TestCase):
         }]
     }
 
+    def test_update_portfolio_too_small(self):
+        sr = SecurityRecommendationSet.from_dict(self.sr_dict)
+        p = Portfolio()
+        p.create_empty_portfolio(sr)
+
+        with self.assertRaises(ValidationError):
+            portfolio_mgr_svc.update_portfolio(p, sr, 0)
+
     def test_update_portfolio_too_big(self):
         sr = SecurityRecommendationSet.from_dict(self.sr_dict)
         p = Portfolio()

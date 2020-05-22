@@ -1,4 +1,5 @@
 import unittest
+import requests
 from unittest.mock import patch
 from intrinio_sdk.rest import ApiException
 from exception.exceptions import ValidationError, DataError
@@ -9,6 +10,15 @@ import datetime
 
 
 class TestConnectorsIntrinioData(unittest.TestCase):
+
+    '''
+        API Endpoint Test
+    '''
+    def test_test_api_endpoint_with_exception(self):
+        with patch.object(requests, 'request',
+                          side_effect=requests.ConnectionError("Connection Error")):
+            with self.assertRaises(DataError):
+                intrinio_data.test_api_endpoint()
 
     '''
         Company Data API test

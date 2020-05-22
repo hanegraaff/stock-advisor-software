@@ -1,10 +1,17 @@
 """securities_recommendation_svc.py
 
+Securities Recommendation Service Main script.
+
+Complete documentation can be found here:
+https://github.com/hanegraaff/stock-advisor-software
+
 """
+# pylint: disable=invalid-name
 import argparse
 import logging
 import traceback
 from datetime import datetime, timedelta
+from connectors import aws_service_wrapper, connector_test
 from support import util
 from exception.exceptions import ValidationError, AWSError
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
@@ -48,7 +55,8 @@ def parse_params():
                   is determined at runtime, and the system wil plug into the AWS infrastructure
                   to read inputs and store outputs.
               """
-
+    log.info("Parsing command line parameters")
+    
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         "-ticker_file", help="Ticker Symbol local file path", type=str, required=True)
@@ -82,32 +90,38 @@ def parse_params():
     environment = args.environment
     app_ns = None
 
-    environment = recommendation_svc.validate_environment(environment)
+    try:
+        environment = recommendation_svc.validate_environment(environment)
 
-    # argparse will ensure that these will be set to the allowed values
-    if (environment == 'TEST'):
-        year = args.analysis_year
-        month = args.analysis_month
-        price_date_string = args.price_date
+        if output_size <= 0:
+            raise ValidationError("Output size (-output_size) must be a positive number", None)
 
-        if price_date_string is None:
-            log.info("Price Date not supplied. Using current date")
-            current_price_date = datetime.now()
+        # argparse will ensure that these will be set to the allowed values
+        if (environment == 'TEST'):
+            year = args.analysis_year
+            month = args.analysis_month
+            price_date_string = args.price_date
+
+            if price_date_string is None:
+                log.info("Price Date not supplied. Using current date")
+                current_price_date = datetime.now()
+            else:
+                current_price_date = recommendation_svc.validate_price_date(
+                    args.price_date)
+
+            recommendation_svc.validate_commandline_parameters(
+                year, month, current_price_date
+            )
         else:
-            current_price_date = recommendation_svc.validate_price_date(
-                args.price_date)
+            current_price_date = datetime.now()
+            (year, month) = recommendation_svc.compute_analysis_period(current_price_date)
+            app_ns = args.app_namespace
 
-        recommendation_svc.validate_commandline_parameters(
-            year, month, current_price_date
-        )
-    else:
-        current_price_date = datetime.now()
-        (year, month) = recommendation_svc.compute_analysis_period(current_price_date)
-        app_ns = args.app_namespace
-
-    return (environment, ticker_file_name, output_size,
-            month, year, current_price_date, app_ns)
-
+        return (environment, ticker_file_name, output_size,
+                month, year, current_price_date, app_ns)
+    except Exception as e:
+        log.error("Could not validate command line parameters beacuse: %s" % str(e))
+        exit(-1)
 
 def display_calculation_dataframe(strategy: object):
     '''
@@ -116,6 +130,7 @@ def display_calculation_dataframe(strategy: object):
         Speficially display the underlining stock rankings that lead to the
         current recommendation
     '''
+    
     recommendation_dataframe = strategy.recommendation_dataframe
     raw_dataframe = strategy.raw_dataframe
 
@@ -158,17 +173,22 @@ try:
     log.info("Analysis Month: %d" % month)
     log.info("Analysis Year: %d" % year)
 
-    if (environment == "TEST"):
+    if environment == "TEST":
         log.info("reading ticker file from local filesystem")
         ticker_list = TickerFile.from_local_file(
             constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
         
-        strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
         log.info("Performing Recommendation Algorithm")
+        strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
         recommendation_set = strategy.generate_recommendation()
         display_calculation_dataframe(strategy)
     else: #environment == "PRODUCTION"
-        log.info("Reading ticker file from local s3 bucket")
+        # test all connectivity upfront, so if there any issues
+        # the problem becomes more apparent
+        connector_test.test_aws_connectivity()
+        connector_test.test_intrinio_connectivity()
+
+        log.info("Reading ticker file from s3 bucket")
         ticker_list = TickerFile.from_s3_bucket(
             ticker_file_name, app_ns).ticker_list
 
@@ -184,10 +204,8 @@ try:
         if recommendation_set == None  \
             or not recommendation_set.is_current(datetime.now()):
 
-            log.info("Creating new recommendation set")
-
-            strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
             log.info("Performing Recommendation Algorithm")
+            strategy = PriceDispersionStrategy(ticker_list, year, month, output_size)
             recommendation_set = strategy.generate_recommendation()
             display_calculation_dataframe(strategy)
 
@@ -201,4 +219,6 @@ except Exception as e:
     log.error("Could run script, because: %s" % (str(e)))
     log.error(stack_trace)
 
-    recommendation_svc.notify_error(e, stack_trace, app_ns)
+    if environment == "PRODUCTION":
+        aws_service_wrapper.notify_error(e, "Securities Recommendation Service",
+            stack_trace, app_ns)

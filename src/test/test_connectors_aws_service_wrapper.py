@@ -1,3 +1,6 @@
+'''
+    Testing class for the connectors.aws_service_wrapper module
+'''
 import unittest
 import botocore
 from unittest.mock import patch
@@ -8,6 +11,9 @@ from support import constants
 
 
 class TestConnectorsAWSServiceWrapper(unittest.TestCase):
+    '''
+        Testing class for the connectors.aws_service_wrapper module
+    '''
 
     def setUp(self):
         '''
@@ -127,3 +133,13 @@ class TestConnectorsAWSServiceWrapper(unittest.TestCase):
             with self.assertRaises(AWSError):
                 aws_service_wrapper.sns_publish_notification(
                     "topic_arn", "subject", "message")
+
+
+    def test_notify_error_boto_error(self):
+        with patch.object(aws_service_wrapper, 'cf_read_export_value',
+                        return_value="some_sns_arn"), \
+            patch.object(aws_service_wrapper, 'sns_publish_notification',
+                        side_effect=AWSError("test exception", None)):
+
+            with self.assertRaises(AWSError):
+                aws_service_wrapper.notify_error("Security Recommendation Service", Exception("None"), 'stack trace', 'sa')

@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
+
 import pandas as pd
 from datetime import datetime, timedelta
 from connectors import intrinio_data, intrinio_util
@@ -76,6 +79,10 @@ class PriceDispersionStrategy():
         if len(ticker_list) < 2:
             raise ValidationError(
                 "You must supply at least 2 ticker symbols", None)
+
+        if output_size <= 0:
+            raise ValidationError(
+                "Output size must be at least 1", None)
 
         (self.analysis_start_date, self.analysis_end_date) = intrinio_util.get_month_date_range(
             data_year, data_month)
@@ -223,7 +230,7 @@ class PriceDispersionStrategy():
         (valid_from, valid_to) = intrinio_util.get_month_date_range(
             valid.year, valid.month)
 
-        sr = SecurityRecommendationSet.from_parameters(datetime.now(), valid_from, valid_to, self.analysis_end_date,
+        recommendation_set = SecurityRecommendationSet.from_parameters(datetime.now(), valid_from, valid_to, self.analysis_end_date,
                                                        self.STRATEGY_NAME, "US Equities", priced_securities)
 
-        return sr
+        return recommendation_set

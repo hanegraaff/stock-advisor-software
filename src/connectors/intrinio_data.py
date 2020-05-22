@@ -3,6 +3,7 @@
 
 import intrinio_sdk
 import atexit
+import requests
 from intrinio_sdk.rest import ApiException
 import os
 from exception.exceptions import DataError, ValidationError
@@ -15,7 +16,7 @@ from datetime import timedelta
 """
 This module is a value add to the Intrinio SDK
 and implements a number of functions to read current and historical
-financial statements
+financial statements, pricing data and company historical data
 """
 
 try:
@@ -32,6 +33,26 @@ security_api = intrinio_sdk.SecurityApi()
 
 
 INTRINIO_CACHE_PREFIX = 'intrinio'
+
+
+def test_api_endpoint():
+      '''
+        Tests the API endpoint directly and throws a DataError if
+        anything goes wrong. 
+        This is used to validate that the API key works
+      '''
+
+      url = 'https://api-v2.intrinio.com/companies/AAPL' 
+
+      try:
+        r = requests.request('GET', url, params={
+                'api_key': API_KEY
+            }, timeout=10)
+      except Exception as e:
+        raise DataError("Could not execute GET to %s" % url, e)
+
+      if not r.ok:
+        raise DataError("Invalid response from Intrinio Endpoint", Exception(r.text))
 
 
 def get_target_price_std_dev(ticker: str, start_date: datetime, end_date: datetime):

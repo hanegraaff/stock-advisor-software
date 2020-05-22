@@ -159,3 +159,31 @@ def sns_publish_notification(topic_arn: str, subject: str, message: str):
     except Exception as e:
         raise AWSError("Cannot publish message to SNS topic: %s" %
                        topic_arn, e)
+
+
+def notify_error(exception: object, service_name: str, stack_trace: str, app_ns: str):
+    '''
+        Sends an SNS notification indicating that an error prevented the service from running
+
+        Parameters
+        ----------
+        exception: object
+            The underlining exception object
+        service_name: str
+            The name of the service that is sending the notification
+        stack_trace: str
+            The stack trace of the error formattes uing 'traceback'
+        app_ns: str
+            The application namespace supplied to the command line
+            used to identify the appropriate CloudFormation exports
+    '''
+    sns_topic_arn = cf_read_export_value(
+        constants.sns_app_notifications_topic_arn(app_ns))
+    subject = "%s Error" % service_name
+    message = "There was an error running the %s: %s\n\n%s" % \
+        (service_name, str(exception), stack_trace)
+
+    log.info("Publishing error event to SNS topic: %s" %
+                sns_topic_arn)
+    sns_publish_notification(
+        sns_topic_arn, subject, message)

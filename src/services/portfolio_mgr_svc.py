@@ -99,6 +99,9 @@ def update_portfolio(current_portfolio: object, recommendation_set: object, port
 
             security_set.remove(random_security)
 
+    if portfolio_size <= 0:
+        raise ValidationError("Portfolio Size must be a positive number", None)
+    
     updated_portfolio = current_portfolio.copy()
 
     updated = False
@@ -156,4 +159,3 @@ def publish_current_returns(updated_portfolio: object, updated: bool, app_ns: st
     log.info("Publishing portfolio update to SNS topic: %s" % sns_topic_arn)
     aws_service_wrapper.sns_publish_notification(
         sns_topic_arn, subject, message)
-

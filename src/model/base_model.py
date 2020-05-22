@@ -1,3 +1,5 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
 from abc import ABC, abstractmethod
 import jsonschema
 import json
@@ -49,8 +51,8 @@ class BaseModel(ABC):
             Loads the model from a local file
         '''
         try:
-            with open(model_path) as f:
-                model_str = f.read()
+            with open(model_path) as file:
+                model_str = file.read()
             model_dict = json.loads(model_str)
         except Exception as e:
             raise ValidationError("Could not %s S3" % cls.model_name, e)

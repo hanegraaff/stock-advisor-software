@@ -1,3 +1,9 @@
+"""Author: Mark Hanegraaff -- 2020
+
+  A module containing date utilities that are useful when interacting
+  with the Intrinio SDK
+"""
+
 from datetime import datetime
 from datetime import timedelta
 import calendar
@@ -40,7 +46,7 @@ def get_year_date_range(year: int, extend_by_days: int):
 
 def get_month_date_range(year: int, month: int):
     """
-      returns the first and last date of the month
+      returns the first and last date of the month as dates
 
       E.g.
         2018, 1 -> ('2018-01-01', '2018-01-31')
@@ -64,6 +70,10 @@ def get_month_date_range(year: int, month: int):
 
 
 def get_month_date_range_str(year: int, month: int):
+    """
+      returns the first and last date of the month as strings.
+      See the get_month_date_range function above for more detail
+    """
 
     (start, end) = get_month_date_range(year, month)
 

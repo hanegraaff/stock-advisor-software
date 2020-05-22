@@ -21,6 +21,10 @@ class TestStrategiesPriceDispersion(unittest.TestCase):
         with self.assertRaises(ValidationError):
             PriceDispersionStrategy(['AAPL'], 2020, 2, 1)
 
+    def test_init_output_size_too_small(self):
+        with self.assertRaises(ValidationError):
+            PriceDispersionStrategy(['1', '2'], 2020, 1, 0)
+
     def test_init_enough_tickers(self):
         PriceDispersionStrategy(['1', '2'], 2020, 1, 1)
 
