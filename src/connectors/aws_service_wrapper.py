@@ -1,14 +1,5 @@
 """Author: Mark Hanegraaff -- 2020
-"""
 
-import boto3
-from exception.exceptions import ValidationError, AWSError
-from support import util, constants
-import logging
-
-log = logging.getLogger()
-
-"""
 This module wraps the boto SDK an offers the following value add to the application:
 
     1) simplify AWS responses and make them easier to use.
@@ -16,17 +7,24 @@ This module wraps the boto SDK an offers the following value add to the applicat
     2) Automatically catch AWS exceptions and rethrow them as a custom exception
     3) Provide filtering options that are meaningful to the application
 """
+import boto3
+from exception.exceptions import ValidationError, AWSError
+from support import util, constants
+import logging
+
+log = logging.getLogger()
 
 # Global clients available to this module]
 try:
-    cf_client = boto3.client('cloudformation')
-    s3_client = boto3.client('s3')
-    sns_client = boto3.client('sns')
+    CF_CLIENT = boto3.client('cloudformation')
+    S3_CLIENT = boto3.client('s3')
+    SNS_CLIENT = boto3.client('sns')
+
 except Exception as e:
-    log.fatal("Could not connect to AWS, because: %s" % str(e))
-    exit(-1)
+    raise AWSError("Could not connect to AWS", e)
 
 # A simple in memory cached used to reduce roundtrips to AWS
+# pylint: disable=invalid-name
 aws_response_cache = {}
 
 
@@ -75,7 +73,7 @@ def cf_list_exports(stack_name_filter: list):
         log.debug("Exports not found. Looking them up")
 
     try:
-        paginator = cf_client.get_paginator('list_exports')
+        paginator = CF_CLIENT.get_paginator('list_exports')
         response_iterator = paginator.paginate()
 
         for page in response_iterator:
@@ -114,7 +112,7 @@ def s3_download_object(bucket_name: str, object_name: str, dest_path: str):
         the destination path (path + filename)
     '''
     try:
-        s3_client.download_file(bucket_name, object_name, dest_path)
+        S3_CLIENT.download_file(bucket_name, object_name, dest_path)
     except Exception as e:
         raise AWSError("Could not download s3://%s/%s --> %s" %
                        (bucket_name, object_name, dest_path), e)
@@ -125,7 +123,7 @@ def s3_upload_object(source_path: str, bucket_name: str, object_name: str):
         Uploads a file from the source_path (path + file) to the destination bucket
     '''
     try:
-        s3_client.upload_file(source_path, bucket_name, object_name)
+        S3_CLIENT.upload_file(source_path, bucket_name, object_name)
     except Exception as e:
         raise AWSError("Could not upload %s --> s3://%s/%s" %
                        (source_path, bucket_name, object_name), e)
@@ -136,7 +134,7 @@ def s3_upload_ascii_string(object_contents: str, s3_bucket_name: str, s3_object_
         Uploads an ASCII string directly to S3, bypassing a local file.
     '''
     try:
-        s3_client.put_object(
+        S3_CLIENT.put_object(
             Body=bytes(object_contents, 'ascii'),
             Bucket=s3_bucket_name,
             Key=s3_object_name
@@ -151,7 +149,7 @@ def sns_publish_notification(topic_arn: str, subject: str, message: str):
         Publishes a simple SNS message
     '''
     try:
-        sns_client.publish(
+        SNS_CLIENT.publish(
             TopicArn=topic_arn,
             Message=message,
             Subject=subject
@@ -184,6 +182,6 @@ def notify_error(exception: object, service_name: str, stack_trace: str, app_ns:
         (service_name, str(exception), stack_trace)
 
     log.info("Publishing error event to SNS topic: %s" %
-                sns_topic_arn)
+             sns_topic_arn)
     sns_publish_notification(
         sns_topic_arn, subject, message)

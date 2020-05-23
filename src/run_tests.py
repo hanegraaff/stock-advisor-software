@@ -22,7 +22,8 @@ from test.test_model_recommendation_set import TestSecurityRecommendationSet
 from test.test_model_base_model import TestBaseModel
 from test.test_model_portfolio import TestPortfolio
 
-logging.basicConfig(level=logging.ERROR, format='[%(levelname)s] - %(message)s')
+logging.basicConfig(level=logging.ERROR,
+                    format='[%(levelname)s] - %(message)s')
 
 if __name__ == '__main__':
     unittest.main()

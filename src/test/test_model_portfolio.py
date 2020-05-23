@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the model.portfolio module
+"""
 import unittest
 from unittest.mock import patch
 import dateutil.parser as parser
@@ -10,6 +13,9 @@ from support import util
 
 
 class TestPortfolio(unittest.TestCase):
+    """
+        Testing class for the model.portfolio module
+    """
 
     def test_valid_object(self):
         portfolio_dict = {
@@ -145,52 +151,57 @@ class TestPortfolio(unittest.TestCase):
         with patch.object(intrinio_data, 'get_latest_close_price',
                           side_effect=DataError("test exception", None)):
 
-            s = SecurityRecommendationSet.from_dict(self.sr_dict)
+            recommendation_set = SecurityRecommendationSet.from_dict(
+                self.sr_dict)
 
             with self.assertRaises(DataError):
-                p = Portfolio()
-                p.create_empty_portfolio(s)
+                portfolio = Portfolio()
+                portfolio.create_empty_portfolio(recommendation_set)
 
     def test_create_empty_portfolio_invalid_intrinio_response(self):
         with patch.object(intrinio_data, 'get_latest_close_price',
                           return_value=('aaaa', 123.45)):
 
-            s = SecurityRecommendationSet.from_dict(self.sr_dict)
+            recommendation_set = SecurityRecommendationSet.from_dict(
+                self.sr_dict)
 
             with self.assertRaises(ValidationError):
-                p = Portfolio()
-                p.create_empty_portfolio(s)
+                portfolio = Portfolio()
+                portfolio.create_empty_portfolio(recommendation_set)
 
     def test_create_empty_portfolio_valid(self):
         with patch.object(intrinio_data, 'get_latest_close_price',
                           return_value=('2019-08-31', 123.45)):
 
-            s = SecurityRecommendationSet.from_dict(self.sr_dict)
+            recommendation_set = SecurityRecommendationSet.from_dict(
+                self.sr_dict)
 
-            p = Portfolio()
-            p.create_empty_portfolio(s)
+            portfolio = Portfolio()
+            portfolio.create_empty_portfolio(recommendation_set)
 
     def test_portfolio_empty(self):
         with patch.object(intrinio_data, 'get_latest_close_price',
                           return_value=('2019-08-31', 123.45)):
 
-            s = SecurityRecommendationSet.from_dict(self.sr_dict)
+            recommendation_set = SecurityRecommendationSet.from_dict(
+                self.sr_dict)
 
-            p = Portfolio()
-            p.create_empty_portfolio(s)
+            portfolio = Portfolio()
+            portfolio.create_empty_portfolio(recommendation_set)
 
-            self.assertTrue(p.is_empty())
+            self.assertTrue(portfolio.is_empty())
 
     def test_portfolio_not_empty(self):
         with patch.object(intrinio_data, 'get_latest_close_price',
                           return_value=('2019-08-31', 123.45)):
 
-            s = SecurityRecommendationSet.from_dict(self.sr_dict)
+            recommendation_set = SecurityRecommendationSet.from_dict(
+                self.sr_dict)
 
-            p = Portfolio()
-            p.create_empty_portfolio(s)
+            portfolio = Portfolio()
+            portfolio.create_empty_portfolio(recommendation_set)
 
-            p.model['current_portfolio'] = {
+            portfolio.model['current_portfolio'] = {
                 'securities': [{
                     "ticker_symbol": "ABC",
                     "purchase_date": "2019-09-01T02:34:12.876012+00:00",
@@ -201,7 +212,7 @@ class TestPortfolio(unittest.TestCase):
                 }]
             }
 
-            self.assertFalse(p.is_empty())
+            self.assertFalse(portfolio.is_empty())
 
     def test_reprice_filled_order(self):
         portfolio_dict = {
@@ -229,26 +240,26 @@ class TestPortfolio(unittest.TestCase):
             }]
         }
 
-        p = Portfolio.from_dict(portfolio_dict)
+        portfolio = Portfolio.from_dict(portfolio_dict)
 
         with patch.object(intrinio_data, 'get_latest_close_price',
                           return_value=('2020-04-30', 101)):
 
             now = datetime.now()
 
-            p.reprice(now)
+            portfolio.reprice(now)
 
-            self.assertEqual(p.model["current_portfolio"][
+            self.assertEqual(portfolio.model["current_portfolio"][
                              "securities"][0]["current_price"], 101)
-            self.assertEqual(round(p.model["current_portfolio"][
+            self.assertEqual(round(portfolio.model["current_portfolio"][
                              "securities"][0]["current_returns"], 2), 0.01)
 
-            self.assertEqual(p.model["securities_set"]
+            self.assertEqual(portfolio.model["securities_set"]
                              [0]["current_price"], 101)
-            self.assertEqual(round(p.model["securities_set"][
+            self.assertEqual(round(portfolio.model["securities_set"][
                              0]["current_returns"], 2), 0.01)
 
-            self.assertEqual(p.model["price_date"], util.date_to_iso_utc_string(
+            self.assertEqual(portfolio.model["price_date"], util.date_to_iso_utc_string(
                 parser.parse('2020-04-30')))
 
     def test_reprice_unfilled_order(self):
@@ -277,28 +288,27 @@ class TestPortfolio(unittest.TestCase):
             }]
         }
 
-        p = Portfolio.from_dict(portfolio_dict)
+        portfolio = Portfolio.from_dict(portfolio_dict)
 
         with patch.object(intrinio_data, 'get_latest_close_price',
                           return_value=('2020-04-30', 101)):
 
             now = datetime.now()
 
-            p.reprice(now)
+            portfolio.reprice(now)
 
-            self.assertEqual(p.model["current_portfolio"][
+            self.assertEqual(portfolio.model["current_portfolio"][
                              "securities"][0]["current_price"], 101)
-            self.assertEqual(round(p.model["current_portfolio"][
+            self.assertEqual(round(portfolio.model["current_portfolio"][
                              "securities"][0]["current_returns"], 2), 0)
 
-            self.assertEqual(p.model["securities_set"]
+            self.assertEqual(portfolio.model["securities_set"]
                              [0]["current_price"], 101)
-            self.assertEqual(round(p.model["securities_set"][
+            self.assertEqual(round(portfolio.model["securities_set"][
                              0]["current_returns"], 2), 0)
 
-            self.assertEqual(p.model["price_date"], util.date_to_iso_utc_string(
+            self.assertEqual(portfolio.model["price_date"], util.date_to_iso_utc_string(
                 parser.parse('2020-04-30')))
-
 
     def test_get_position(self):
         portfolio_dict = {
@@ -326,7 +336,7 @@ class TestPortfolio(unittest.TestCase):
             }]
         }
 
-        p = Portfolio.from_dict(portfolio_dict)
+        portfolio = Portfolio.from_dict(portfolio_dict)
 
-        self.assertIsNotNone(p.get_position("INTC"))
-        self.assertIsNone(p.get_position("XXX"))
+        self.assertIsNotNone(portfolio.get_position("INTC"))
+        self.assertIsNone(portfolio.get_position("XXX"))

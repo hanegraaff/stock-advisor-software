@@ -422,7 +422,10 @@ good-names=log,
            te,
            de,
            be,
-           awe
+           ke,
+           awe,
+           ae,
+           i
 
 # Include a hint for the correct naming format with invalid-name.
 include-naming-hint=no

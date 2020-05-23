@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the model.recommendation_set module
+"""
 import unittest
 from datetime import datetime, timezone, timedelta
 import botocore
@@ -8,6 +11,10 @@ from connectors import aws_service_wrapper
 
 
 class TestSecurityRecommendationSet(unittest.TestCase):
+    """
+        Testing class for the model.recommendation_set module
+    """
+
     '''
         Exception/Validation testing
     '''
@@ -50,7 +57,7 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         ), datetime.now(), datetime.now(), 'STRATEGY_NAME', 'US Equities', {'AAPL': 100})
 
     def test_valid_dict(self):
-        d = {
+        recommendation_set_dict = {
             "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
             "creation_date": "2020-09-01T04:56:57.612693+00:00",
             "valid_from": "2019-08-01T04:00:00+00:00",
@@ -70,7 +77,7 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }]
         }
 
-        SecurityRecommendationSet.from_dict(d)
+        SecurityRecommendationSet.from_dict(recommendation_set_dict)
 
     def test_invalid_dict_1(self):
         with self.assertRaises(ValidationError):
@@ -79,7 +86,7 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             })
 
     def test_invalid_dict_2(self):
-        d = {
+        recommendation_set_dict = {
             "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
             "creation_date": "2020-09-01T04:56:57.612693+00:00",
             "valid_from": "2019-08-01T04:00:00+00:00",
@@ -89,12 +96,12 @@ class TestSecurityRecommendationSet(unittest.TestCase):
         }
 
         with self.assertRaises(ValidationError):
-            SecurityRecommendationSet.from_dict(d)
+            SecurityRecommendationSet.from_dict(recommendation_set_dict)
 
     def test_is_current_future_date(self):
 
         # Create a recommendation set from the past (2019/8)
-        p = SecurityRecommendationSet.from_parameters(
+        recommendation_set = SecurityRecommendationSet.from_parameters(
             datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
             datetime(2019, 8, 1, 0, 0, 0),
             datetime(2019, 8, 31, 0, 0, 0),
@@ -108,12 +115,13 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }
         )
 
-        self.assertFalse(p.is_current(datetime(2019, 9, 1, 0, 0, 0),))
+        self.assertFalse(recommendation_set.is_current(
+            datetime(2019, 9, 1, 0, 0, 0),))
 
     def test_is_current_past_date(self):
 
         # Create a recommendation set from the past (2019/8)
-        p = SecurityRecommendationSet.from_parameters(
+        recommendation_set = SecurityRecommendationSet.from_parameters(
             datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
             datetime(2019, 8, 1, 0, 0, 0),
             datetime(2019, 8, 31, 0, 0, 0),
@@ -127,12 +135,13 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }
         )
 
-        self.assertFalse(p.is_current(datetime(2019, 7, 30, 0, 0, 0),))
+        self.assertFalse(recommendation_set.is_current(
+            datetime(2019, 7, 30, 0, 0, 0),))
 
     def test_is_current_current_date(self):
-    
+
         # Create a recommendation set from the past (2019/8)
-        p = SecurityRecommendationSet.from_parameters(
+        recommendation_set = SecurityRecommendationSet.from_parameters(
             datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
             datetime(2019, 8, 1, 0, 0, 0),
             datetime(2019, 8, 31, 0, 0, 0),
@@ -146,4 +155,5 @@ class TestSecurityRecommendationSet(unittest.TestCase):
             }
         )
 
-        self.assertTrue(p.is_current(datetime(2019, 8, 15, 0, 0, 0),))
+        self.assertTrue(recommendation_set.is_current(
+            datetime(2019, 8, 15, 0, 0, 0),))

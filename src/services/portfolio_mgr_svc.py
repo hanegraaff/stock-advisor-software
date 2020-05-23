@@ -1,6 +1,5 @@
 """Author: Mark Hanegraaff -- 2020
 """
-
 import logging
 import random
 import dateutil.parser as parser
@@ -35,9 +34,9 @@ def get_service_inputs(app_ns: str):
     '''
 
     log.info("Loading latest recommendations")
-    sr = SecurityRecommendationSet.from_s3(app_ns)
+    recommendation_set = SecurityRecommendationSet.from_s3(app_ns)
 
-    if not sr.is_current(datetime.now()):
+    if not recommendation_set.is_current(datetime.now()):
         raise ValidationError("Current recommendation set is not valid", None)
 
     try:
@@ -49,7 +48,7 @@ def get_service_inputs(app_ns: str):
         else:
             raise e
 
-    return (pfolio, sr)
+    return (pfolio, recommendation_set)
 
 
 def update_portfolio(current_portfolio: object, recommendation_set: object, portfolio_size: int):
@@ -101,7 +100,7 @@ def update_portfolio(current_portfolio: object, recommendation_set: object, port
 
     if portfolio_size <= 0:
         raise ValidationError("Portfolio Size must be a positive number", None)
-    
+
     updated_portfolio = current_portfolio.copy()
 
     updated = False

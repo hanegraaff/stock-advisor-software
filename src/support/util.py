@@ -1,4 +1,4 @@
-"""Author: Mark Hanegraaff -- 2019
+"""Author: Mark Hanegraaff -- 2020
 """
 import json
 from datetime import datetime

@@ -1,3 +1,8 @@
+"""Author: Mark Hanegraaff -- 2020
+
+Testing class for the connectors.intrinio_data module
+"""
+
 import unittest
 import requests
 from unittest.mock import patch
@@ -11,9 +16,14 @@ import datetime
 
 class TestConnectorsIntrinioData(unittest.TestCase):
 
+    """
+        Testing class for the connectors.intrinio_data module
+    """
+
     '''
         API Endpoint Test
     '''
+
     def test_test_api_endpoint_with_exception(self):
         with patch.object(requests, 'request',
                           side_effect=requests.ConnectionError("Connection Error")):
@@ -25,7 +35,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
     '''
 
     def test_read_financial_metric_with_api_exception(self):
-        with patch.object(intrinio_data.company_api, 'get_company_historical_data',
+        with patch.object(intrinio_data.COMPANY_API, 'get_company_historical_data',
                           side_effect=ApiException("Server Error")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
 
@@ -74,7 +84,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
     '''
 
     def test_read_company_data_point_with_api_exception(self):
-        with patch.object(intrinio_data.company_api, 'get_company_data_point_number',
+        with patch.object(intrinio_data.COMPANY_API, 'get_company_data_point_number',
                           side_effect=ApiException("Server Error")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
 
@@ -87,7 +97,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
     '''
 
     def test_historical_cashflow_stmt_with_api_exception(self):
-        with patch.object(intrinio_data.fundamentals_api, 'get_fundamental_standardized_financials',
+        with patch.object(intrinio_data.FUNDAMENTALS_API, 'get_fundamental_standardized_financials',
                           side_effect=ApiException("Not Found")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
             with self.assertRaises(DataError):
@@ -95,7 +105,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
                     'NON-EXISTENT-TICKER', 2018, 2018, None)
 
     def test_historical_income_stmt_with_api_exception(self):
-        with patch.object(intrinio_data.fundamentals_api, 'get_fundamental_standardized_financials',
+        with patch.object(intrinio_data.FUNDAMENTALS_API, 'get_fundamental_standardized_financials',
                           side_effect=ApiException("Not Found")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
             with self.assertRaises(DataError):
@@ -103,7 +113,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
                     'NON-EXISTENT-TICKER', 2018, 2018, None)
 
     def test_historical_balacesheet_stmt_with_api_exception(self):
-        with patch.object(intrinio_data.fundamentals_api, 'get_fundamental_standardized_financials',
+        with patch.object(intrinio_data.FUNDAMENTALS_API, 'get_fundamental_standardized_financials',
                           side_effect=ApiException("Not Found")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
             with self.assertRaises(DataError):
@@ -115,7 +125,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
     '''
 
     def test_daily_stock_prices_with_api_exception(self):
-        with patch.object(intrinio_data.security_api, 'get_security_stock_prices',
+        with patch.object(intrinio_data.SECURITY_API, 'get_security_stock_prices',
                           side_effect=ApiException("Not Found")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
             with self.assertRaises(DataError):
@@ -123,7 +133,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
                     'NON-EXISTENT-TICKER', datetime.date(2018, 1, 1), datetime.date(2019, 1, 1))
 
     def test_daily_stock_prices_with_other_exception(self):
-        with patch.object(intrinio_data.security_api, 'get_security_stock_prices',
+        with patch.object(intrinio_data.SECURITY_API, 'get_security_stock_prices',
                           side_effect=KeyError("xxx")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
             with self.assertRaises(ValidationError):
@@ -136,7 +146,7 @@ class TestConnectorsIntrinioData(unittest.TestCase):
                 'AAPL', datetime.date(2018, 1, 1), 25)
 
     def test_latest_stock_prices_with_exception(self):
-        with patch.object(intrinio_data.security_api, 'get_security_stock_prices',
+        with patch.object(intrinio_data.SECURITY_API, 'get_security_stock_prices',
                           side_effect=ApiException("Not Found")), \
                 patch('support.financial_cache.cache', new=nop.Nop()):
             with self.assertRaises(DataError):

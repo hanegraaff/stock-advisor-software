@@ -1,3 +1,5 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
 from support import constants
 from support import util
 from exception.exceptions import AWSError, FileSystemError, ValidationError
@@ -51,8 +53,8 @@ class TickerFile():
             destination_path = "%s/%s" % (ticker_path, ticker_file_name)
 
             log.debug("Reading Ticker File: %s" % destination_path)
-            with open(destination_path) as f:
-                ticker_list = f.read().splitlines()
+            with open(destination_path) as file:
+                ticker_list = file.read().splitlines()
             return cls(ticker_list)
         except Exception as e:
             raise FileSystemError("Could not read ticker file", e)

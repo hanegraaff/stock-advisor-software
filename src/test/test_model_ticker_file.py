@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the model.recommendation_set module
+"""
 import unittest
 from unittest.mock import patch
 from exception.exceptions import ValidationError, FileSystemError, AWSError
@@ -8,6 +11,10 @@ import os
 
 
 class TestModelTickerFile(unittest.TestCase):
+
+    """
+        Testing class for the model.recommendation_set module
+    """
 
     def test_from_s3_bucket_valid(self):
         expected_return = ['TICKER-A', 'TICKER-B']

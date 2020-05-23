@@ -371,6 +371,15 @@ Example:
 [INFO] - Parameters:
 [INFO] - Ticker File: djia30.txt
 [INFO] - Output Size: 3
+[INFO] - Peforming backtest for 5/2019
+[INFO] - Peforming backtest for 6/2019
+[INFO] - Peforming backtest for 7/2019
+[INFO] - Peforming backtest for 8/2019
+[INFO] - Peforming backtest for 9/2019
+[INFO] - Peforming backtest for 10/2019
+[INFO] - Peforming backtest for 11/2019
+[INFO] - Peforming backtest for 12/2019
+[INFO] - Peforming backtest for 1/2020
 investment_period  ticker_sample_size  avg_ret_1M  sel_ret_1M  avg_ret_2M  sel_ret_2M  avg_ret_3M  sel_ret_3M
           2019/05                  12       8.09%       9.95%      11.17%      12.31%       8.74%       5.49%
           2019/06                  26       2.35%       3.56%      -2.00%     -10.78%       0.38%      -4.30%
@@ -380,9 +389,9 @@ investment_period  ticker_sample_size  avg_ret_1M  sel_ret_1M  avg_ret_2M  sel_r
           2019/10                  27       2.65%       5.34%       5.01%       5.97%       6.43%      14.98%
           2019/11                  26       2.26%       0.68%       3.53%       8.88%      -8.55%      -7.02%
           2019/12                  25       1.46%       5.60%     -10.80%      -8.54%     -19.59%     -20.31%
-          2020/01                  27     -10.03%     -10.39%     -20.47%     -21.08%     -12.68%     -20.63%
+          2020/01                  27     -10.03%     -10.39%     -20.47%     -21.08%     -12.65%     -20.99%
 investment_period ticker_sample_size  avg_tot_1M  sel_tot_1M  avg_tot_2M  sel_tot_2M  avg_tot_3M  sel_tot_3M
-          ----/--                 --       8.57%      20.71%      -5.42%      18.14%     -10.12%      15.29%
+          ----/--                 --       8.57%      20.71%      -5.42%      18.14%     -10.09%      14.93%
 ```
 
 Each line reports the returns for each montly portfolio selection at a 1 month, 2 month and 3 month horizon.

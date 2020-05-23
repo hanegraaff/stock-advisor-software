@@ -1,4 +1,11 @@
 """Author: Mark Hanegraaff -- 2020
+
+This module is a value add to the Intrinio SDK and implements a 
+number of functions to read current and historical financial statements, 
+pricing data and company historical data.
+
+It also converts Intrinio raw responses into easier to digest dictionaries
+that are easier to consume by the application.
 """
 
 import intrinio_sdk
@@ -13,12 +20,6 @@ import logging
 import datetime
 from datetime import timedelta
 
-"""
-This module is a value add to the Intrinio SDK
-and implements a number of functions to read current and historical
-financial statements, pricing data and company historical data
-"""
-
 try:
     API_KEY = os.environ['INTRINIO_API_KEY']
 except KeyError as ke:
@@ -27,35 +28,41 @@ except KeyError as ke:
 intrinio_sdk.ApiClient().configuration.api_key['api_key'] = API_KEY
 
 
-fundamentals_api = intrinio_sdk.FundamentalsApi()
-company_api = intrinio_sdk.CompanyApi()
-security_api = intrinio_sdk.SecurityApi()
+FUNDAMENTALS_API = intrinio_sdk.FundamentalsApi()
+COMPANY_API = intrinio_sdk.CompanyApi()
+SECURITY_API = intrinio_sdk.SecurityApi()
 
 
 INTRINIO_CACHE_PREFIX = 'intrinio'
 
 
 def test_api_endpoint():
-      '''
-        Tests the API endpoint directly and throws a DataError if
-        anything goes wrong. 
-        This is used to validate that the API key works
-      '''
+    """
+      Tests the API endpoint directly and throws a DataError if
+      anything goes wrong. 
+      This is used to validate that the API key works
+    """
 
-      url = 'https://api-v2.intrinio.com/companies/AAPL' 
+    url = 'https://api-v2.intrinio.com/companies/AAPL'
 
-      try:
-        r = requests.request('GET', url, params={
-                'api_key': API_KEY
-            }, timeout=10)
-      except Exception as e:
+    try:
+        response = requests.request('GET', url, params={
+            'api_key': API_KEY
+        }, timeout=10)
+    except Exception as e:
         raise DataError("Could not execute GET to %s" % url, e)
 
-      if not r.ok:
-        raise DataError("Invalid response from Intrinio Endpoint", Exception(r.text))
+    if not response.ok:
+        raise DataError(
+            "Invalid response from Intrinio Endpoint", Exception(r.text))
 
 
 def get_target_price_std_dev(ticker: str, start_date: datetime, end_date: datetime):
+    """
+      retrieves the 'zacks_target_price_std_dev' data point for the supplied date 
+      range. see the '_get_company_historical_data()' pydoc for specific information
+      or parameters, return types and exceptions.
+    """
     return _aggregate_by_year_month(
         _get_company_historical_data(ticker, intrinio_util.date_to_string(
             start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_std_dev')
@@ -63,6 +70,11 @@ def get_target_price_std_dev(ticker: str, start_date: datetime, end_date: dateti
 
 
 def get_target_price_mean(ticker: str, start_date: datetime, end_date: datetime):
+    """
+      retrieves the 'zacks_target_price_mean' data point for the supplied date 
+      range. see the '_get_company_historical_data()' pydoc for specific information
+      or parameters, return types and exceptions.
+    """
     return _aggregate_by_year_month(
         _get_company_historical_data(ticker, intrinio_util.date_to_string(
             start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_mean')
@@ -70,6 +82,11 @@ def get_target_price_mean(ticker: str, start_date: datetime, end_date: datetime)
 
 
 def get_target_price_cnt(ticker: str, start_date: datetime, end_date: datetime):
+    """
+      retrieves the 'zacks_target_price_cnt' data point for the supplied date 
+      range. see the '_get_company_historical_data()' pydoc for specific information
+      or parameters, return types and exceptions.
+    """
     return _aggregate_by_year_month(
         _get_company_historical_data(ticker, intrinio_util.date_to_string(
             start_date), intrinio_util.date_to_string(end_date), 'zacks_target_price_cnt')
@@ -112,7 +129,7 @@ def get_daily_stock_close_prices(ticker: str, start_date: datetime, end_date: da
 
     if api_response is None:
         try:
-            api_response = security_api.get_security_stock_prices(
+            api_response = SECURITY_API.get_security_stock_prices(
                 ticker, start_date=start_date_str, end_date=end_date_str, frequency='daily', page_size=100)
             cache.write(cache_key, api_response)
         except ApiException as ae:
@@ -372,7 +389,7 @@ def _read_historical_financial_statement(ticker: str, statement_name: str, year_
             statement = cache.read(cache_key)
 
             if statement is None:
-                statement = fundamentals_api.get_fundamental_standardized_financials(
+                statement = FUNDAMENTALS_API.get_fundamental_standardized_financials(
                     satement_name)
 
                 cache.write(cache_key, statement)
@@ -406,7 +423,7 @@ def _read_company_data_point(ticker: str, tag: str):
     if api_response is None:
         # else call the API directly
         try:
-            api_response = company_api.get_company_data_point_number(
+            api_response = COMPANY_API.get_company_data_point_number(
                 ticker, tag)
 
             cache.write(cache_key, api_response)
@@ -459,7 +476,7 @@ def _get_company_historical_data(ticker: str, start_date: str, end_date: str, ta
     if api_response is None:
         # else call the API directly
         try:
-            api_response = company_api.get_company_historical_data(
+            api_response = COMPANY_API.get_company_historical_data(
                 ticker, tag, frequency=frequency, start_date=start_date, end_date=end_date)
         except ApiException as ae:
             raise DataError(
@@ -584,9 +601,9 @@ def shutdown():
       This code exists in the API source, but it's not invoked reliably, so we force
       its invocation
     """
-    fundamentals_api.api_client.pool.close()
-    fundamentals_api.api_client.pool.join()
-    company_api.api_client.pool.close()
-    company_api.api_client.pool.join()
-    security_api.api_client.pool.close()
-    security_api.api_client.pool.join()
+    FUNDAMENTALS_API.api_client.pool.close()
+    FUNDAMENTALS_API.api_client.pool.join()
+    COMPANY_API.api_client.pool.close()
+    COMPANY_API.api_client.pool.join()
+    SECURITY_API.api_client.pool.close()
+    SECURITY_API.api_client.pool.join()

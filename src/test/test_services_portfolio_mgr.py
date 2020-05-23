@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the services.portfolio_mgr_svc module
+"""
 import unittest
 from unittest.mock import patch, Mock
 from copy import deepcopy
@@ -11,6 +14,10 @@ from connectors import aws_service_wrapper
 
 
 class TestServicePortfolioManager(unittest.TestCase):
+
+    """Author: Mark Hanegraaff -- 2020
+        Testing class for the services.portfolio_mgr_svc module
+    """
 
     '''
         validate_environment tests
@@ -39,8 +46,8 @@ class TestServicePortfolioManager(unittest.TestCase):
                          return_value=True), \
             patch.object(Portfolio, 'from_s3',
                          side_effect=AWSError("", Exception("(404) Not found"))):
-            p = portfolio_mgr_svc.get_service_inputs('sa')[0]
-            self.assertEqual(p, None)
+            portfolio = portfolio_mgr_svc.get_service_inputs('sa')[0]
+            self.assertEqual(portfolio, None)
 
     def test_get_service_inputs_portfolio_error(self):
         with patch.object(SecurityRecommendationSet, 'from_s3',
@@ -103,19 +110,23 @@ class TestServicePortfolioManager(unittest.TestCase):
     }
 
     def test_update_portfolio_too_small(self):
-        sr = SecurityRecommendationSet.from_dict(self.sr_dict)
-        p = Portfolio()
-        p.create_empty_portfolio(sr)
+        security_recommendation = SecurityRecommendationSet.from_dict(
+            self.sr_dict)
+        portfolio = Portfolio()
+        portfolio.create_empty_portfolio(security_recommendation)
 
         with self.assertRaises(ValidationError):
-            portfolio_mgr_svc.update_portfolio(p, sr, 0)
+            portfolio_mgr_svc.update_portfolio(
+                portfolio, security_recommendation, 0)
 
     def test_update_portfolio_too_big(self):
-        sr = SecurityRecommendationSet.from_dict(self.sr_dict)
-        p = Portfolio()
-        p.create_empty_portfolio(sr)
+        security_recommendation = SecurityRecommendationSet.from_dict(
+            self.sr_dict)
+        portfolio = Portfolio()
+        portfolio.create_empty_portfolio(security_recommendation)
 
-        (new_p, updated) = portfolio_mgr_svc.update_portfolio(p, sr, 100)
+        (new_p, updated) = portfolio_mgr_svc.update_portfolio(
+            portfolio, security_recommendation, 100)
 
         '''
             ensure that portfolio contains all securitie from the recommendation set
@@ -123,15 +134,17 @@ class TestServicePortfolioManager(unittest.TestCase):
 
         self.assertTrue(updated)
         self.assertEqual(len(new_p.model['current_portfolio'][
-                         'securities']), len(sr.model['securities_set']))
+                         'securities']), len(security_recommendation.model['securities_set']))
         self.assertEqual(len(new_p.model['securities_set']), 0)
 
     def test_update_portfolio_empty_portfolio(self):
-        sr = SecurityRecommendationSet.from_dict(self.sr_dict)
-        p = Portfolio()
-        p.create_empty_portfolio(sr)
+        security_recommendation = SecurityRecommendationSet.from_dict(
+            self.sr_dict)
+        portfolio = Portfolio()
+        portfolio.create_empty_portfolio(security_recommendation)
 
-        (new_p, updated) = portfolio_mgr_svc.update_portfolio(p, sr, 1)
+        (new_p, updated) = portfolio_mgr_svc.update_portfolio(
+            portfolio, security_recommendation, 1)
 
         '''
             ensure that
@@ -144,17 +157,18 @@ class TestServicePortfolioManager(unittest.TestCase):
         self.assertEqual(
             len(new_p.model['current_portfolio']['securities']), 1)
         self.assertEqual(len(new_p.model['securities_set']), len(
-            sr.model['securities_set']) - 1)
+            security_recommendation.model['securities_set']) - 1)
 
     def test_update_portfolio_new_recommendation(self):
 
         sr_mod = deepcopy(self.sr_dict)
         sr_mod['set_id'] = 'different_set'
 
-        sr = SecurityRecommendationSet.from_dict(sr_mod)
-        p = Portfolio.from_dict(self.portfolio_dict)
+        security_recommendation = SecurityRecommendationSet.from_dict(sr_mod)
+        portfolio = Portfolio.from_dict(self.portfolio_dict)
 
-        (new_p, updated) = portfolio_mgr_svc.update_portfolio(p, sr, 1)
+        (new_p, updated) = portfolio_mgr_svc.update_portfolio(
+            portfolio, security_recommendation, 1)
 
         '''
             ensure that
@@ -163,7 +177,8 @@ class TestServicePortfolioManager(unittest.TestCase):
         '''
 
         self.assertTrue(updated)
-        self.assertEqual(new_p.model['set_id'], sr.model['set_id'])
+        self.assertEqual(new_p.model['set_id'],
+                         security_recommendation.model['set_id'])
         self.assertNotEqual(new_p.model['set_id'], self.sr_dict['set_id'])
 
     def test_update_portfolio_nothing_new(self):
@@ -173,10 +188,11 @@ class TestServicePortfolioManager(unittest.TestCase):
         sr_mod['set_id'] = 'same_set'
         p_mod['set_id'] = 'same_set'
 
-        sr = SecurityRecommendationSet.from_dict(sr_mod)
-        p = Portfolio.from_dict(p_mod)
+        security_recommendation = SecurityRecommendationSet.from_dict(sr_mod)
+        portfolio = Portfolio.from_dict(p_mod)
 
-        (new_p, updated) = portfolio_mgr_svc.update_portfolio(p, sr, 1)
+        (new_p, updated) = portfolio_mgr_svc.update_portfolio(
+            portfolio, security_recommendation, 1)
 
         '''
             ensure that
@@ -185,7 +201,8 @@ class TestServicePortfolioManager(unittest.TestCase):
         '''
 
         self.assertFalse(updated)
-        self.assertEqual(new_p.model['set_id'], sr.model['set_id'])
+        self.assertEqual(new_p.model['set_id'],
+                         security_recommendation.model['set_id'])
         self.assertEqual(new_p.model['set_id'], p_mod['set_id'])
 
     '''
@@ -194,10 +211,12 @@ class TestServicePortfolioManager(unittest.TestCase):
 
     def test_publish_current_returns(self):
 
-        sr = SecurityRecommendationSet.from_dict(self.sr_dict)
-        p = Portfolio()
-        p.create_empty_portfolio(sr)
-        (new_p, updated) = portfolio_mgr_svc.update_portfolio(p, sr, 1)
+        security_recommendation = SecurityRecommendationSet.from_dict(
+            self.sr_dict)
+        portfolio = Portfolio()
+        portfolio.create_empty_portfolio(security_recommendation)
+        (new_p, updated) = portfolio_mgr_svc.update_portfolio(
+            portfolio, security_recommendation, 1)
 
         with patch.object(aws_service_wrapper, 'sns_publish_notification',
                           side_effect=AWSError("", None)), \

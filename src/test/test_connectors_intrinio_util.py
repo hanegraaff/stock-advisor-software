@@ -1,9 +1,16 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the connectors.intrinio_util module
+"""
 import unittest
 from connectors import intrinio_util
 from exception.exceptions import ValidationError
 
 
 class TestConnectorsIntrinioUtil(unittest.TestCase):
+
+    """
+        Testing class for the connectors.intrinio_util module
+    """
 
     '''
         get_year_date_range tests

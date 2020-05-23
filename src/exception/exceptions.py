@@ -1,3 +1,7 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
+
+
 class BaseError(Exception):
     """
         Chained Exception used a basis for all errors.

@@ -15,6 +15,7 @@ from support import constants
 
 log = logging.getLogger()
 
+
 def test_aws_connectivity():
     '''
         Tests the connection to AWS by reading a cloudformation export.
@@ -40,6 +41,7 @@ def test_intrinio_connectivity():
     except DataError as de:
         raise DataError("Intrino Connectivity Test failed", de.cause)
 
+
 def test_tdameritrade_connectivity():
     '''
         Makes a direct call to the intrio API (bypassing the cache) to verify the API
@@ -50,7 +52,9 @@ def test_tdameritrade_connectivity():
         td_ameritrade.equity_market_open(datetime.now())
         log.info("TDAmeritrade connectivity test successful")
     except TradeError as de:
-        raise TradeError("TDAmeritrade Connectivity Test failed", de.cause, None)
+        raise TradeError(
+            "TDAmeritrade Connectivity Test failed", de.cause, None)
+
 
 def test_all_connectivity():
     '''

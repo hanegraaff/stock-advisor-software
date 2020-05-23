@@ -1,12 +1,10 @@
-"""portfolio_manager_svc.py
+"""Author: Mark Hanegraaff -- 2020
+    Portfolio Manager Main Script
 
-Portfolio Manager Main Script
-
-Complete documentation can be found here:
-https://github.com/hanegraaff/stock-advisor-software
+    Complete documentation can be found here:
+    https://github.com/hanegraaff/stock-advisor-software
 """
 
-# pylint: disable=invalid-name
 import argparse
 import logging
 import traceback
@@ -22,6 +20,7 @@ from support import util
 
 log = logging.getLogger()
 
+
 def parse_params():
     """
         Parse command line parameters
@@ -29,7 +28,6 @@ def parse_params():
         Returns
         ----------
         A tuple containing the application paramter values
-
     """
 
     description = """ Executes trades and maintains a portfolio based on the output
@@ -53,73 +51,82 @@ def parse_params():
 
     return (app_ns, portfolio_size)
 
-try:
-    (app_ns, portfolio_size) = parse_params()
 
-    log.info("Application Parameters")
-    log.info("-app_namespace: %s" % app_ns)
-    log.info("-portfolio_size: %d" % portfolio_size)
+def main():
+    """
+        Main function of this script
+    """
+    try:
+        (app_ns, portfolio_size) = parse_params()
 
-    # test all connectivity upfront, so if there any issues
-    # the problem becomes more apparent
-    connector_test.test_all_connectivity()
+        log.info("Application Parameters")
+        log.info("-app_namespace: %s" % app_ns)
+        log.info("-portfolio_size: %d" % portfolio_size)
 
-    (current_portfolio, sr) = portfolio_mgr_svc.get_service_inputs(app_ns)
+        # test all connectivity upfront, so if there any issues
+        # the problem becomes more apparent
+        connector_test.test_all_connectivity()
 
-    log.info("Loaded recommendation set id: %s" % sr.model['set_id'])
+        (current_portfolio,
+         security_recommendation) = portfolio_mgr_svc.get_service_inputs(app_ns)
 
-    if current_portfolio is None:
-        log.info("Creating new portfolio")
-        current_portfolio = Portfolio()
-        current_portfolio.create_empty_portfolio(sr)
-    else:
-        log.info("Repricing portfolio")
-        current_portfolio.reprice(datetime.now())
+        log.info("Loaded recommendation set id: %s" %
+                 security_recommendation.model['set_id'])
 
-    (updated_portfolio, updated) = portfolio_mgr_svc.update_portfolio(
-        current_portfolio, sr, portfolio_size)
+        if current_portfolio is None:
+            log.info("Creating new portfolio")
+            current_portfolio = Portfolio()
+            current_portfolio.create_empty_portfolio(security_recommendation)
+        else:
+            log.info("Repricing portfolio")
+            current_portfolio.reprice(datetime.now())
 
-    # See if there is anything that needs to be traded
-    market_open = td_ameritrade.equity_market_open(datetime.now())
+        (updated_portfolio, updated) = portfolio_mgr_svc.update_portfolio(
+            current_portfolio, security_recommendation, portfolio_size)
 
-    if market_open == True:
-        broker = Broker()
-        broker.cancel_all_open_orders()
+        # See if there is anything that needs to be traded
+        market_open = td_ameritrade.equity_market_open(datetime.now())
 
-        log.info("Market is open. Looking for trading opportunities")
-        current_positions = td_ameritrade.positions_summary()
-
-        try:
-            if broker.reconcile_portfolio(current_positions, updated_portfolio) == False:
-                log.info("Portfolio is not in sync with brokerage account positions. Positions will be rebalanced")
-
-            broker.materialize_portfolio(current_positions, updated_portfolio)
-        finally:
-            updated_positions = td_ameritrade.positions_summary()
-            broker.synchronize_portfolio(updated_positions, updated_portfolio)
-
-            updated_portfolio.recalc_returns()
+        if market_open == True:
+            broker = Broker()
             broker.cancel_all_open_orders()
-    else:
-        log.info("Market is closed. Nothing to trade")
 
-    log.info("updated portfolio: %s" %
-            util.format_dict(updated_portfolio.to_dict()))
+            log.info("Market is open. Looking for trading opportunities")
+            current_positions = td_ameritrade.positions_summary()
 
+            try:
+                if broker.reconcile_portfolio(current_positions, updated_portfolio) == False:
+                    log.info(
+                        "Portfolio is not in sync with brokerage account positions. Positions will be rebalanced")
 
-    log.info("Saving updated portfolio")
-    updated_portfolio.save_to_s3(app_ns)
+                broker.materialize_portfolio(
+                    current_positions, updated_portfolio)
+            finally:
+                updated_positions = td_ameritrade.positions_summary()
+                broker.synchronize_portfolio(
+                    updated_positions, updated_portfolio)
 
-    portfolio_mgr_svc.publish_current_returns(
-        updated_portfolio, updated, app_ns)
+                updated_portfolio.recalc_returns()
+                broker.cancel_all_open_orders()
+        else:
+            log.info("Market is closed. Nothing to trade")
 
+        log.info("updated portfolio: %s" %
+                 util.format_dict(updated_portfolio.to_dict()))
 
-except Exception as e:
-    stack_trace = traceback.format_exc()
-    log.error("Could run script, because: %s" % (str(e)))
-    log.error(stack_trace)
+        log.info("Saving updated portfolio")
+        updated_portfolio.save_to_s3(app_ns)
 
-    aws_service_wrapper.notify_error(e, "Portfolio Manager Service",
-            stack_trace, app_ns)
+        portfolio_mgr_svc.publish_current_returns(
+            updated_portfolio, updated, app_ns)
 
-    raise e
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        log.error("Could run script, because: %s" % (str(e)))
+        log.error(stack_trace)
+
+        aws_service_wrapper.notify_error(e, "Portfolio Manager Service",
+                                         stack_trace, app_ns)
+
+if __name__ == "__main__":
+    main()

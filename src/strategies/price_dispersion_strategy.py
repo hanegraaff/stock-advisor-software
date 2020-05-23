@@ -224,13 +224,13 @@ class PriceDispersionStrategy():
         for row in self.recommendation_dataframe.itertuples(index=False):
             priced_securities[row.ticker] = row.analysis_price
 
-        # determine the recommendation valid date range        
+        # determine the recommendation valid date range
         valid = self.analysis_end_date + timedelta(days=1)
 
         (valid_from, valid_to) = intrinio_util.get_month_date_range(
             valid.year, valid.month)
 
         recommendation_set = SecurityRecommendationSet.from_parameters(datetime.now(), valid_from, valid_to, self.analysis_end_date,
-                                                       self.STRATEGY_NAME, "US Equities", priced_securities)
+                                                                       self.STRATEGY_NAME, "US Equities", priced_securities)
 
         return recommendation_set

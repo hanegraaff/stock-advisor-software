@@ -26,7 +26,6 @@ class Broker():
             based on the contents of the brokerage account.
     '''
 
-
     def reconcile_portfolio(self, broker_positions: dict, current_portfolio: object):
         '''
             Compares the current portfolio with the current positions recorded
@@ -92,7 +91,6 @@ class Broker():
 
         current_portfolio.validate_model()
 
-
     def cancel_all_open_orders(self):
         '''
             Cancels any open orders that are in a cancelable state.
@@ -106,7 +104,8 @@ class Broker():
             try:
                 td_ameritrade.cancel_order(order_id)
             except TradeError as te:
-                log.warning("Could not cancel oder %s, because: %s" % (order_id, str(te)))
+                log.warning("Could not cancel oder %s, because: %s" %
+                            (order_id, str(te)))
         log.info("Attempting to cancel all open orders")
 
         recent_oders = td_ameritrade.list_recent_orders()
@@ -115,7 +114,8 @@ class Broker():
             order = recent_oders[order_id]
 
             if order['cancelable']:
-                log.info("Cancelling %s, in state: %s" % (order_id, order['status']) )
+                log.info("Cancelling %s, in state: %s" %
+                         (order_id, order['status']))
                 try_cancel_oder(order_id)
 
     def _generate_trade_instructions(self, broker_positions: dict, new_portfolio: object):
@@ -143,15 +143,15 @@ class Broker():
 
         for ticker in position_tickers:
             if new_portfolio.get_position(ticker) == None:
-                sell_list.append((ticker, broker_positions['equities'][ticker]['longQuantity']))
+                sell_list.append(
+                    (ticker, broker_positions['equities'][ticker]['longQuantity']))
 
-        buy_list= []
+        buy_list = []
         for sec in new_portfolio.model['current_portfolio']['securities']:
             if sec['ticker_symbol'] not in position_tickers:
                 buy_list.append(sec['ticker_symbol'])
 
         return (sell_list, buy_list)
-
 
     def trade(self, action: str, trade_instructions: list, new_portfolio: dict):
         '''
@@ -169,31 +169,34 @@ class Broker():
                 Optional portfolio object. When buying securities it will
                 be updated with the trade details.
         '''
-        def fill_order(order_id : str, quantity : int, purchase_time : str):
+        def fill_order(order_id: str, quantity: int, purchase_time: str):
             '''
                 If the order is a BUY, then update the portfolio with the
                 details of the trade.
             '''
-            if order_id in order_ids: 
+            if order_id in order_ids:
                 order_ids.remove(order_id)
-            
-            if new_portfolio is None or action == 'SELL': return
+
+            if new_portfolio is None or action == 'SELL':
+                return
 
             for sec in new_portfolio.model['current_portfolio']['securities']:
                 if sec['order_id'] == order_id:
-                    sec['purchase_date'] = util.date_to_iso_utc_string(parser.parse(purchase_time)) 
+                    sec['purchase_date'] = util.date_to_iso_utc_string(
+                        parser.parse(purchase_time))
                     sec['trade_state'] = 'FILLED'
                     sec['quantity'] = quantity
                     break
-        
-        def track_order(ticker: str, order_id : str):
+
+        def track_order(ticker: str, order_id: str):
             '''
                 associates the supplied order ID with a specific security listed
                 in the portfolio
             '''
             order_ids.append(order_id)
 
-            if new_portfolio is None or action == 'SELL': return
+            if new_portfolio is None or action == 'SELL':
+                return
 
             new_portfolio.get_position(ticker)['order_id'] = order_id
         #
@@ -210,8 +213,10 @@ class Broker():
 
         for (ticker, quantity) in trade_instructions:
             try:
-                log.info("Placing order: %s %.2f %s" % (action, quantity, ticker))
-                order_id = td_ameritrade.place_order(action, ticker, quantity, 'SHARES')
+                log.info("Placing order: %s %.2f %s" %
+                         (action, quantity, ticker))
+                order_id = td_ameritrade.place_order(
+                    action, ticker, quantity, 'SHARES')
                 track_order(ticker, order_id)
             except TradeError as te:
                 log.warning("Could not execute order, because: %s" % str(te))
@@ -227,35 +232,39 @@ class Broker():
             completed = True
             for order_id in recent_orders.keys():
                 status = recent_orders[order_id]['status']
-                closeTime = recent_orders[order_id]['closeTime']
+                close_time = recent_orders[order_id]['closeTime']
 
                 log.debug("Order %s is in %s state" % (order_id, status))
-                if closeTime is None:
+                if close_time is None:
                     log.info("Order %s is not completed" % order_id)
                     completed = False
                 elif status == 'FILLED':
-                    log.info("Order %s was filled and will no longer be tracked" % order_id)
-                    fill_order(order_id, recent_orders[order_id]['quantity'], recent_orders[order_id]['closeTime'])
+                    log.info(
+                        "Order %s was filled and will no longer be tracked" % order_id)
+                    fill_order(order_id, recent_orders[order_id][
+                               'quantity'], recent_orders[order_id]['closeTime'])
                 else:
-                    log.info("Order %s completed with an error state" % order_id)
-                    if order_id in order_ids: 
+                    log.info("Order %s completed with an error state" %
+                             order_id)
+                    if order_id in order_ids:
                         order_ids.remove(order_id)
-                    
+
             if completed:
                 log.info("All orders are closed.")
                 break
             else:
-                log.info("One or more orders are still being processed. Sleeping for 1 minute")
+                log.info(
+                    "One or more orders are still being processed. Sleeping for 1 minute")
                 time.sleep(60)
 
         if len(order_ids) == 0:
             log.info("All securities were succefully [%s] traded" % action)
             return True
         else:
-            log.info("%d security could not be [%s] traded" 
-                % (len(order_ids), action) )
+            log.info("%d security could not be [%s] traded"
+                     % (len(order_ids), action))
             return False
-    
+
     def materialize_portfolio(self, broker_positions: dict, portfolio: object):
         '''
             Materializes the porfolio by executing the trades necessary to do so.
@@ -265,12 +274,15 @@ class Broker():
             2) Buy all existing securities not already owned
         '''
 
-        (sell_trades, buy_trades) = self._generate_trade_instructions(broker_positions, portfolio)
+        (sell_trades, buy_trades) = self._generate_trade_instructions(
+            broker_positions, portfolio)
 
         if len(sell_trades) > 0:
             if (self.trade('SELL', sell_trades, None) == False):
-                log.warning("There was error unwinding positions. Portfolio could not be materialized")
-                raise TradeError("Could not unwind (sell) all positions from portfolio", None, None)
+                log.warning(
+                    "There was error unwinding positions. Portfolio could not be materialized")
+                raise TradeError(
+                    "Could not unwind (sell) all positions from portfolio", None, None)
 
         '''
             Get the cash available for trading and split it evenly acorss all securities
@@ -279,7 +291,8 @@ class Broker():
         if len(buy_trades) > 0:
             current_broker_positions = td_ameritrade.positions_summary()
             try:
-                available_cash = current_broker_positions['cash']['cashAvailableForTrading']
+                available_cash = current_broker_positions[
+                    'cash']['cashAvailableForTrading']
             except KeyError:
                 available_cash = 0
 
@@ -288,24 +301,23 @@ class Broker():
 
             buy_instructions = []
             for buy_ticker in buy_trades:
-                latest_price = td_ameritrade.get_latest_equity_price(buy_ticker)
-                
+                latest_price = td_ameritrade.get_latest_equity_price(
+                    buy_ticker)
+
                 shares = int(trade_dollar_amount / latest_price)
 
                 if shares > 0:
                     buy_instructions.append((buy_ticker, shares))
                 else:
-                    log.warning("Will not purchase %s, because there aren't enough funds" % buy_ticker)
+                    log.warning(
+                        "Will not purchase %s, because there aren't enough funds" % buy_ticker)
 
             if len(buy_instructions) == 0:
-                 log.warning("Could not afford to purchase any securities")
-                 return
-
+                log.warning("Could not afford to purchase any securities")
+                return
 
             if self.trade('BUY', buy_instructions, portfolio) == False:
-                log.warning("There was an error adding positions to the portoflio. Portfolio could not be materialized")
+                log.warning(
+                    "There was an error adding positions to the portoflio. Portfolio could not be materialized")
         else:
             log.info("There are no securities to buy")
-        
-
-

@@ -1,15 +1,15 @@
+"""Author: Mark Hanegraaff -- 2020
+
+This module contains a collection of calculations shared by the trading
+strategies contained in this package.
+"""
 import pandas as pd
 from datetime import datetime
 from connectors import intrinio_data
 from exception.exceptions import ValidationError, CalculationError, DataError
 
-"""
-This module contains a collection of calculations shared by the trading
-strategies contained in this package.
-"""
 
-
-def mark_to_market(df: object, price_date: datetime):
+def mark_to_market(data_frame: object, price_date: datetime):
     """
         Peforms a Mark to Market on a Pandas dataframe representing
         a ranked portfolio, and given a price date. This is used
@@ -28,7 +28,7 @@ def mark_to_market(df: object, price_date: datetime):
 
         Parmeters
         ---------
-        df : Pandas DataFrame
+        data_frame : Pandas DataFrame
             portfolio dataframe
         price_date : datetime
             price date, current or historical
@@ -43,18 +43,18 @@ def mark_to_market(df: object, price_date: datetime):
         DataError if there are problems reading price data
     """
 
-    if (df is None or price_date is None):
+    if (data_frame is None or price_date is None):
         raise ValidationError(
             "Invalid Parameters supplied to Mark to Market calculation", None)
 
-    if ('ticker' not in df.columns
-            or 'analysis_price' not in df.columns):
+    if ('ticker' not in data_frame.columns
+            or 'analysis_price' not in data_frame.columns):
         raise ValidationError(
             "Could not extract required fields for Mark to Market calculation", None)
 
     mmt_prices = []
 
-    for ticker in df['ticker']:
+    for ticker in data_frame['ticker']:
         try:
             latest_price = intrinio_data.get_latest_close_price(ticker, price_date, 5)[
                 1]
@@ -62,7 +62,7 @@ def mark_to_market(df: object, price_date: datetime):
         except Exception as e:
             raise DataError("Could not perform MMT calculation", e)
 
-    df['current_price'] = mmt_prices
-    df['actual_return'] = (df['current_price'] -
-                           df['analysis_price']) / df['analysis_price']
-    return df
+    data_frame['current_price'] = mmt_prices
+    data_frame['actual_return'] = (data_frame['current_price'] -
+                                   data_frame['analysis_price']) / data_frame['analysis_price']
+    return data_frame

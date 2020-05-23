@@ -1,3 +1,7 @@
+"""Author: Mark Hanegraaff -- 2020
+
+Testing class for the strategies.price_dispersion module
+"""
 import unittest
 from unittest.mock import patch
 from intrinio_sdk.rest import ApiException
@@ -8,6 +12,9 @@ from strategies.price_dispersion_strategy import PriceDispersionStrategy
 
 
 class TestStrategiesPriceDispersion(unittest.TestCase):
+    """
+        Testing class for the strategies.price_dispersion module
+    """
 
     def test_init_no_tickers(self):
         with self.assertRaises(ValidationError):
@@ -29,7 +36,7 @@ class TestStrategiesPriceDispersion(unittest.TestCase):
         PriceDispersionStrategy(['1', '2'], 2020, 1, 1)
 
     def test_api_exception(self):
-        with patch.object(intrinio_data.company_api, 'get_company_historical_data',
+        with patch.object(intrinio_data.COMPANY_API, 'get_company_historical_data',
                           side_effect=ApiException("Not Found")):
 
             strategy = PriceDispersionStrategy(['1', '2'], 2020, 2, 1)

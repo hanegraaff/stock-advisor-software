@@ -1,3 +1,5 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
 from datetime import datetime, timedelta
 from copy import deepcopy
 import uuid
@@ -203,7 +205,7 @@ class Portfolio(BaseModel):
         for security in self.model['securities_set']:
             analysis_price = security['analysis_price']
             latest_price = security['current_price']
-            
+
             if analysis_price > 0:
                 security['current_returns'] = (
                     (latest_price / analysis_price) - 1)
@@ -215,14 +217,14 @@ class Portfolio(BaseModel):
             for security in self.model['current_portfolio']['securities']:
                 purchase_price = security['purchase_price']
                 latest_price = security['current_price']
-                
+
                 if purchase_price > 0:
                     security['current_returns'] = (
                         (latest_price / purchase_price) - 1)
                 else:
                     security['current_returns'] = 0
-    
-    def get_position(self, ticker : str):
+
+    def get_position(self, ticker: str):
         '''
             Returns the dictionary object for the given ticker, or None if
             not present in the portfolio
@@ -230,13 +232,11 @@ class Portfolio(BaseModel):
         for sec in self.model['current_portfolio']['securities']:
             if sec['ticker_symbol'] == ticker:
                 return sec
-        
+
         return None
 
-    
     def copy(self):
         '''
             returns a copy of the portfolio
         '''
         return deepcopy(self)
-

@@ -1,3 +1,5 @@
+"""Author: Mark Hanegraaff -- 2020
+"""
 from datetime import datetime, timedelta
 import uuid
 import pytz
@@ -128,6 +130,5 @@ class SecurityRecommendationSet(BaseModel):
 
         valid_to = parser.parse(
             self.model['valid_to'])
-        
-        return valid_from.timestamp() <= current_date.timestamp() <= valid_to.timestamp()
 
+        return valid_from.timestamp() <= current_date.timestamp() <= valid_to.timestamp()

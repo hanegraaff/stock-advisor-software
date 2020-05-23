@@ -1,6 +1,9 @@
 """Author: Mark Hanegraaff -- 2020
+
+    This module wraps the TDAmeritrade APIs into a simple SDK.
+    APIs are called using the "requests" package, and all Exceptions
+    and re-raised as TradeErrors
 """
-# pylint: disable=invalid-name
 import requests
 import os
 import json
@@ -14,15 +17,9 @@ from datetime import timedelta
 from exception.exceptions import ValidationError, TradeError
 from support import util
 
-"""
-    This module wraps the TDAmeritrade APIs into a simple SDK.
-    APIs are called using the "requests" package, and all Exceptions
-    and re-raised as TradeErrors
-"""
-
-
 log = logging.getLogger()
 
+# pylint: disable=invalid-name
 missing_variables = []
 
 TD_ACCESS_TOKEN = ""
@@ -31,7 +28,7 @@ TD_ACCESS_TOKEN = ""
 REQUEST_TIMEOUT = 8
 
 
-def AUTH_HEADER():
+def auth_header():
     '''
         Generates a standard authentication header used for TD Ameritrade api calls
     '''
@@ -92,7 +89,7 @@ def request(method: str, url: str, params: dict, payload: dict):
     '''
     try:
         api_response = requests.request(method, url, params=params, json=payload,
-                             headers=AUTH_HEADER(), timeout=REQUEST_TIMEOUT)
+                                        headers=auth_header(), timeout=REQUEST_TIMEOUT)
     except Exception as e:
         raise TradeError("Could not execute %s to %s" % (method, url), e, None)
 
@@ -377,7 +374,7 @@ def list_recent_orders():
 
     order_list = request('GET', 'https://api.tdameritrade.com/v1/accounts/%s/orders' %
                          td_account_id, params=params, payload=None)[1]
-    
+
     for order in order_list:
         order_id = str(order['orderId'])
         recent_orders[order_id] = {}
@@ -406,6 +403,6 @@ def get_latest_equity_price(ticker: str):
     '''
 
     price_response = request('GET', 'https://api.tdameritrade.com/v1/marketdata/%s/quotes' %
-            ticker, None, None)[1]
-    
+                             ticker, None, None)[1]
+
     return price_response[ticker]['lastPrice']

@@ -46,11 +46,18 @@ def parse_params():
     return (mode, string)
 
 
-(mode, string) = parse_params()
+def main():
+    """
+        Main function for this script
+    """
+    (mode, string) = parse_params()
 
-if mode == 'encode':
-    log.info("Encoding: %s" % string)
-    log.info("Results: %s" % urllib.parse.quote(string))
-else:
-    log.info("Decoding: %s" % string)
-    log.info("Results: %s" % urllib.parse.unquote(string))
+    if mode == 'encode':
+        log.info("Encoding: %s" % string)
+        log.info("Results: %s" % urllib.parse.quote(string))
+    else:
+        log.info("Decoding: %s" % string)
+        log.info("Results: %s" % urllib.parse.unquote(string))
+
+if __name__ == "__main__":
+    main()

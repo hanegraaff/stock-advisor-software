@@ -1,9 +1,15 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the exception.exceptions module
+"""
 import unittest
 from exception.exceptions import ValidationError, CalculationError, DataError, ReportError, AWSError, TradeError
 from requests import Response
 
 
 class TestExceptions(unittest.TestCase):
+    """Author: Mark Hanegraaff -- 2020
+        Testing class for the exception.exceptions module
+    """
 
     def test_simple_exception_nocause(self):
 
@@ -30,34 +36,34 @@ class TestExceptions(unittest.TestCase):
             empty_dict['XXX']
             self.fail("Error in test setup")
         except KeyError as ke:
-            ve = ValidationError("Cannot do XYZ", ke)
+            validation_error = ValidationError("Cannot do XYZ", ke)
             self.assertEqual(
-                str(ve), "Validation Error: Cannot do XYZ. Caused by: 'XXX'")
+                str(validation_error), "Validation Error: Cannot do XYZ. Caused by: 'XXX'")
 
     def test_simple_exception_with_stringcause(self):
 
-        ve = ValidationError("Cannot do XYZ", "Some Error")
+        validation_error = ValidationError("Cannot do XYZ", "Some Error")
 
         self.assertEqual(
-            str(ve), "Validation Error: Cannot do XYZ. Caused by: Some Error")
+            str(validation_error), "Validation Error: Cannot do XYZ. Caused by: Some Error")
 
     def test_simple_exception_with_numbercause(self):
 
-        ve = ValidationError("Cannot do XYZ", 3.2)
+        validation_error = ValidationError("Cannot do XYZ", 3.2)
 
         self.assertEqual(
-            str(ve), "Validation Error: Cannot do XYZ. Caused by: 3.2")
+            str(validation_error), "Validation Error: Cannot do XYZ. Caused by: 3.2")
 
     def test_simple_exception_with_chainedcause(self):
 
         root_cause = Exception("Root Cause")
         chained_cause = Exception("Some reason", root_cause)
 
-        ve = ValidationError("Cannot do XYZ", chained_cause)
+        validation_error = ValidationError("Cannot do XYZ", chained_cause)
 
         # mac os and linux produce slightly different results
         self.assertTrue(
-            "Validation Error: Cannot do XYZ. Caused by: ('Some reason', Exception('Root Cause" in str(ve))
+            "Validation Error: Cannot do XYZ. Caused by: ('Some reason', Exception('Root Cause" in str(validation_error))
 
     '''
         AWS Tests
@@ -88,11 +94,11 @@ class TestExceptions(unittest.TestCase):
 
     def test_trade_error_with_api_response(self):
 
-        r = Response()
-        r.reason = "Server Error"
-        r.status_code = 500
+        response = Response()
+        response.reason = "Server Error"
+        response.status_code = 500
 
-        trade_error = TradeError("Some Error", None, r)
+        trade_error = TradeError("Some Error", None, response)
 
         self.assertEqual(str(trade_error),
                          "Trade Error (500) [Server Error]: Some Error")

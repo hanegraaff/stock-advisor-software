@@ -1,4 +1,4 @@
-"""Author: Mark Hanegraaff -- 2019
+"""Author: Mark Hanegraaff -- 2020
 """
 from io import BytesIO
 import atexit
@@ -42,7 +42,7 @@ class FinancialCache():
         util.create_dir(path)
 
         try:
-            self.diskCache = Cache(path, size_limit=int(max_cache_size_bytes))
+            self.disk_cache = Cache(path, size_limit=int(max_cache_size_bytes))
         except Exception as e:
             raise ValidationError('invalid max cache size', e)
 
@@ -55,7 +55,7 @@ class FinancialCache():
         if (key == "" or key is None) or (value == "" or value is None):
             return
 
-        self.diskCache[key] = value
+        self.disk_cache[key] = value
 
     def read(self, key):
         """
@@ -67,16 +67,19 @@ class FinancialCache():
             The object in question, or None if they key is not present
         """
         try:
-            return self.diskCache[key]
+            return self.disk_cache[key]
         except KeyError:
             log.debug("%s not found inside cache" % key)
             return None
 
 
 @atexit.register
-def shutdownCache():
+def shutdown_cache():
+    '''
+        Cleanly close the cache when the application exits
+    '''
     log.debug("Shutting down cache")
-    cache.diskCache.close()
+    cache.disk_cache.close()
 
-
+# pylint: disable=invalid-name
 cache = FinancialCache(constants.FINANCIAL_DATA_DIR)

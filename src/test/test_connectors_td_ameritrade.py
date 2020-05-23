@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the connectors.td_ameritrade module
+"""
 import unittest
 import botocore
 import os
@@ -12,6 +15,9 @@ from support import constants
 
 
 class TestConnectorsTDAmeritrade(unittest.TestCase):
+    """
+        Testing class for the connectors.td_ameritrade module
+    """
 
     def test_generate_tags(self):
         tag = td_ameritrade.generate_tag()
@@ -228,12 +234,12 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
     }
 
     def test_positions_summary_valid_response(self):
-        r = deepcopy(self.td_account_response)
+        response = deepcopy(self.td_account_response)
 
         with patch.object(td_ameritrade, 'get_credentials',
                           return_value=("aaa", "bbb", "ccc")), \
                 patch.object(td_ameritrade, 'login', return_value=None),\
-                patch.object(td_ameritrade, 'request', return_value=(None, r)):
+                patch.object(td_ameritrade, 'request', return_value=(None, response)):
 
             summary = td_ameritrade.positions_summary()
 
@@ -250,13 +256,13 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
             Tests that when positions are missing from the response, no
             exceptions are thrown
         '''
-        r = deepcopy(self.td_account_response)
-        del r['securitiesAccount']['positions']
+        response = deepcopy(self.td_account_response)
+        del response['securitiesAccount']['positions']
 
         with patch.object(td_ameritrade, 'get_credentials',
                           return_value=("aaa", "bbb", "ccc")), \
                 patch.object(td_ameritrade, 'login', return_value=None),\
-                patch.object(td_ameritrade, 'request', return_value=(None, r)):
+                patch.object(td_ameritrade, 'request', return_value=(None, response)):
 
             summary = td_ameritrade.positions_summary()
 
@@ -266,13 +272,13 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
             })
 
     def test_positions_summary_not_cash_account(self):
-        r = deepcopy(self.td_account_response)
-        r['securitiesAccount']['type'] = 'MARGIN'
+        response = deepcopy(self.td_account_response)
+        response['securitiesAccount']['type'] = 'MARGIN'
 
         with patch.object(td_ameritrade, 'get_credentials',
                           return_value=("aaa", "bbb", "ccc")), \
                 patch.object(td_ameritrade, 'login', return_value=None),\
-                patch.object(td_ameritrade, 'request', return_value=(None, r)):
+                patch.object(td_ameritrade, 'request', return_value=(None, response)):
 
             with self.assertRaises(ValidationError):
                 td_ameritrade.positions_summary()
@@ -396,12 +402,12 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
     }]
 
     def test_list_recent_orders_valid_response(self):
-        r = deepcopy(self.td_order_list)
+        response = deepcopy(self.td_order_list)
 
         with patch.object(td_ameritrade, 'get_credentials',
                           return_value=("aaa", "bbb", "ccc")), \
                 patch.object(td_ameritrade, 'login', return_value=None),\
-                patch.object(td_ameritrade, 'request', return_value=(None, r)):
+                patch.object(td_ameritrade, 'request', return_value=(None, response)):
 
             order_summary = td_ameritrade.list_recent_orders()
 
@@ -433,7 +439,6 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
             order_summary = td_ameritrade.list_recent_orders()
 
             self.assertDictEqual(order_summary, {})
-
 
     def test_get_latest_equity_price_with_api_exception(self):
         with patch.object(td_ameritrade, 'get_credentials',

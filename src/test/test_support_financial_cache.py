@@ -1,3 +1,6 @@
+"""Author: Mark Hanegraaff -- 2020
+    Testing class for the support.financial_cache
+"""
 import unittest
 import shutil
 from support.financial_cache import FinancialCache
@@ -5,6 +8,10 @@ from exception.exceptions import ValidationError, FileSystemError
 
 
 class TestFinancialCache(unittest.TestCase):
+
+    """Author: Mark Hanegraaff -- 2020
+        Testing class for the support.financial_cache
+    """
 
     test_path = "./test/cache-unittest/"
     test_cache = None

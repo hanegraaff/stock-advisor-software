@@ -1,3 +1,9 @@
+"""Author: Mark Hanegraaff -- 2020
+
+This module contains supporting logic for reccomendation service script.
+It exists solely so that the code may be tested. otherwise it would
+be organized along with the service itself.
+"""
 import traceback
 import logging
 import dateutil.parser as parser
@@ -8,12 +14,6 @@ from support import constants
 from support import util
 
 log = logging.getLogger()
-
-"""
-This module contains supporting logic for reccomendation service script.
-It exists solely so that the code may be tested. otherwise it would
-be organized along with the service itself.
-"""
 
 
 def validate_environment(environment: str):
@@ -112,7 +112,6 @@ def notify_new_recommendation(recommendation_set: object, app_ns: str):
     message += formatted_ticker_message
 
     log.info("Publishing Recommendation set to SNS topic: %s" %
-                sns_topic_arn)
+             sns_topic_arn)
     aws_service_wrapper.sns_publish_notification(
         sns_topic_arn, subject, message)
-
