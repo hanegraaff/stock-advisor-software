@@ -125,7 +125,7 @@ def parse_params():
         exit(-1)
 
 
-def display_calculation_dataframe(strategy: object):
+def display_calculation_dataframe(month: int, year: int, strategy: object, current_price_date: datetime):
     '''
         Displays the results of the calculation using a Pandas dataframe,
         using the supplied PriceDispersionStrategy object.
@@ -133,6 +133,7 @@ def display_calculation_dataframe(strategy: object):
         current recommendation
     '''
 
+    recommendation_set = strategy.recommendation_set
     recommendation_dataframe = strategy.recommendation_dataframe
     raw_dataframe = strategy.raw_dataframe
 
@@ -183,8 +184,9 @@ def main():
             log.info("Performing Recommendation Algorithm")
             strategy = PriceDispersionStrategy(
                 ticker_list, year, month, output_size)
-            recommendation_set = strategy.generate_recommendation()
-            display_calculation_dataframe(strategy)
+            strategy.generate_recommendation()
+            display_calculation_dataframe(
+                month, year, strategy, current_price_date)
         else:  # environment == "PRODUCTION"
             # test all connectivity upfront, so if there any issues
             # the problem becomes more apparent
@@ -211,8 +213,11 @@ def main():
                 log.info("Performing Recommendation Algorithm")
                 strategy = PriceDispersionStrategy(
                     ticker_list, year, month, output_size)
-                recommendation_set = strategy.generate_recommendation()
-                display_calculation_dataframe(strategy)
+
+                strategy.generate_recommendation()
+                recommendation_set = strategy.recommendation_set
+                display_calculation_dataframe(
+                    month, year, strategy, current_price_date)
 
                 recommendation_set.save_to_s3(app_ns)
                 recommendation_svc.notify_new_recommendation(

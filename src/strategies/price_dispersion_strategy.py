@@ -12,7 +12,7 @@ from model.recommendation_set import SecurityRecommendationSet
 
 class PriceDispersionStrategy():
     """
-        An invenstment strategy based on analyst target price agreement measured as
+        An trading strategy based on analyst target price agreement measured as
         the price dispersion, described in papers like these:
 
         /doc/Consensus-Analyst-Target-Prices.pdf
@@ -20,8 +20,9 @@ class PriceDispersionStrategy():
         /doc/Predictive-Power-Analyst-Price-Target-Dispersion.pdf
 
         Specifically, given a list ticker symbols, it will return a recommendation
-        that consists of securities with the lowest price dispersion (highest analyst agreement)
-        and highest price target.
+        that consists of securities with the highest price dispersion (lowest analyst agreement)
+        and highest price target. In other words recommendations are based on
+        stocks where analyst can't seem to agree on the target price
 
         The recommendation set is represented as a JSON document like this:
 
@@ -96,18 +97,27 @@ class PriceDispersionStrategy():
         self.output_size = output_size
         self.data_date = "%d-%d" % (data_year, data_month)
 
+        self.recommendation_set = None
+        self.raw_dataframe = None
+        self.recommendation_dataframe = None
+
     def __load_financial_data__(self):
         """
-            loads financial data into a map that is suitable to be converted
-            into a pandas data frame
+            loads the raw financial required by this strategy and returns it as
+            a dictionary suitable for Pandas processing.
 
-            pricing_raw_data = {
+            Returns
+            ------------
+            A Dictionary with the following format.
+
+            {
+                'analysis_period': [],
                 'ticker': [],
+                'analysis_price': [],
                 'target_price_avg': [],
-                'target_price_sdtdev': [],
-                'dispersion_stdev_pct': []
+                'dispersion_stdev_pct': [],
+                'analyst_expected_return': []
             }
-
 
             Raises
             ------------
@@ -118,7 +128,7 @@ class PriceDispersionStrategy():
         logging.debug("Loading financial data for %s strategy" %
                       self.STRATEGY_NAME)
 
-        pricing_raw_data = {
+        financial_data = {
             'analysis_period': [],
             'ticker': [],
             'analysis_price': [],
@@ -152,13 +162,13 @@ class PriceDispersionStrategy():
                 analyst_expected_return = (
                     target_price_avg - analysis_price) / analysis_price
 
-                pricing_raw_data['analysis_period'].append(self.data_date)
-                pricing_raw_data['ticker'].append(ticker)
-                pricing_raw_data['analysis_price'].append(analysis_price)
-                pricing_raw_data['target_price_avg'].append(target_price_avg)
-                pricing_raw_data['dispersion_stdev_pct'].append(
+                financial_data['analysis_period'].append(self.data_date)
+                financial_data['ticker'].append(ticker)
+                financial_data['analysis_price'].append(analysis_price)
+                financial_data['target_price_avg'].append(target_price_avg)
+                financial_data['dispersion_stdev_pct'].append(
                     dispersion_stdev_pct)
-                pricing_raw_data['analyst_expected_return'].append(
+                financial_data['analyst_expected_return'].append(
                     analyst_expected_return)
 
                 at_least_one = True
@@ -173,53 +183,42 @@ class PriceDispersionStrategy():
             raise DataError(
                 "Could not load financial data for any if the supplied tickers", None)
 
-        return pricing_raw_data
-
-    def __calc_return_factor__(self, price_from: float, price_to: float):
-        """
-            calculates the return as a factor give two prices
-        """
-        return (price_to - price_from) / price_from
-
-    def __convert_to_data_frame__(self, pricing_raw_data: dict):
-        """
-            converts the supplied financial_data into a pandas data frame.
-
-            Parameters
-            ------------
-            pricing_raw_data : JSON document (suitable for pandas)
-            containin the raw financial data
-
-        """
-        raw_dataframe = pd.DataFrame(pricing_raw_data)
-        pd.options.display.float_format = '{:.3f}'.format
-        raw_dataframe['decile'] = pd.qcut(
-            pricing_raw_data['dispersion_stdev_pct'], 10, labels=False, duplicates='drop')
-        raw_dataframe = raw_dataframe.sort_values(
-            ['decile', 'analyst_expected_return'], ascending=(False, False))
-
-        selected_portfolio = raw_dataframe.head(self.output_size).drop(
-            ['decile', 'target_price_avg', 'dispersion_stdev_pct', 'analyst_expected_return'], axis=1)
-
-        return (selected_portfolio, raw_dataframe)
+        return financial_data
 
     def generate_recommendation(self):
         """
-            Creates a recommended portfolio and returns it as a pandas data frame
-            and with the following fields:
+            Applies the price dispersion algorithm and sets the following 
+            instance variables:
 
-            'ticker',
-            'analysis_price',
-            'current_price',
-            'actual_return'
+            self.recommendation_set
+                A SecurityRecommendationSet object with the current 
+                recommendation
+            self.raw_dataframe
+                Dataframe with all stocks sorted into deciles. Useful for
+                displaying intermediate results.
+            self.recommendation_dataframe
+                A Dataframe containing just the recommended stocks
 
             Returns
             ------------
-            A pandas data frame containing the recommended portfolio
+            None
         """
-        (self.recommendation_dataframe, self.raw_dataframe) = self.__convert_to_data_frame__(
-            self.__load_financial_data__())
 
+        financial_data = self.__load_financial_data__()
+
+        self.raw_dataframe = pd.DataFrame(financial_data)
+        pd.options.display.float_format = '{:.3f}'.format
+
+        # sort the dataframe into deciles
+        self.raw_dataframe['decile'] = pd.qcut(
+            financial_data['dispersion_stdev_pct'], 10, labels=False, duplicates='drop')
+        self.raw_dataframe = self.raw_dataframe.sort_values(
+            ['decile', 'analyst_expected_return'], ascending=(False, False))
+
+        self.recommendation_dataframe = self.raw_dataframe.head(self.output_size).drop(
+            ['decile', 'target_price_avg', 'dispersion_stdev_pct', 'analyst_expected_return'], axis=1)
+
+        # price the recommended securitues
         priced_securities = {}
         for row in self.recommendation_dataframe.itertuples(index=False):
             priced_securities[row.ticker] = row.analysis_price
@@ -230,7 +229,5 @@ class PriceDispersionStrategy():
         (valid_from, valid_to) = intrinio_util.get_month_date_range(
             valid.year, valid.month)
 
-        recommendation_set = SecurityRecommendationSet.from_parameters(datetime.now(), valid_from, valid_to, self.analysis_end_date,
-                                                                       self.STRATEGY_NAME, "US Equities", priced_securities)
-
-        return recommendation_set
+        self.recommendation_set = SecurityRecommendationSet.from_parameters(datetime.now(), valid_from, valid_to, self.analysis_end_date,
+                                                                            self.STRATEGY_NAME, "US Equities", priced_securities)
