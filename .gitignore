@@ -10,3 +10,4 @@ reports
 cache.db*
 *.xlsx
 app_data
+*.s3download

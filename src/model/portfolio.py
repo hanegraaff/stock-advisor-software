@@ -37,7 +37,7 @@ class Portfolio(BaseModel):
             },
             "price_date": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date"
             },
             "current_portfolio": {
                 "type": "object",
@@ -100,12 +100,11 @@ class Portfolio(BaseModel):
     }
 
     model_s3_folder_prefix = constants.S3_PORTFOLIO_FOLDER_PREFIX
-    model_s3_object_name = constants.S3_PORTFOLIO_OBJECT_NAME
 
     model_name = "Portfolio"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, model_dict: dict):
+        super().__init__(model_dict)
 
     def is_empty(self):
         '''
@@ -141,7 +140,7 @@ class Portfolio(BaseModel):
             )
 
         try:
-            price_date = parser.parse(price_date_str)
+            price_date = parser.parse(price_date_str).date()
         except Exception as e:
             raise ValidationError(
                 "Could parse price date returned by Intrinio API", e)
@@ -153,8 +152,8 @@ class Portfolio(BaseModel):
         self.model = {
             "portfolio_id": str(uuid.uuid1()),
             "set_id": recommendation_set.to_dict()['set_id'],
-            "creation_date": util.date_to_iso_utc_string(datetime.now()),
-            "price_date": util.date_to_iso_utc_string(price_date),
+            "creation_date": util.datetime_to_iso_utc_string(datetime.now()),
+            "price_date": str(price_date),
             "securities_set": securities_list
         }
 
@@ -188,12 +187,12 @@ class Portfolio(BaseModel):
 
         # finally set the price date
         try:
-            price_date = parser.parse(price_date_str)
+            price_date = parser.parse(price_date_str).date()
         except Exception as e:
             raise ValidationError(
                 "Could parse price date returned by Intrinio API", e)
 
-        self.model['price_date'] = util.date_to_iso_utc_string(price_date)
+        self.model['price_date'] = str(price_date)
         log.info("Repriced portfolio for date of %s" % str(price_date))
 
     def recalc_returns(self):

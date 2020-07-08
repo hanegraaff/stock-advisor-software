@@ -10,7 +10,6 @@ from copy import deepcopy
 from unittest.mock import patch
 from connectors import td_ameritrade
 from exception.exceptions import ValidationError, TradeError
-from test import nop
 from support import constants
 
 

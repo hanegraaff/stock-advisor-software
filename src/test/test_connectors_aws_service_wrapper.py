@@ -7,7 +7,6 @@ import botocore
 from unittest.mock import patch
 from exception.exceptions import AWSError
 from connectors import aws_service_wrapper
-from test import nop
 from support import constants
 
 

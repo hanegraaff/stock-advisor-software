@@ -3,7 +3,7 @@
 """
 import unittest
 from unittest.mock import patch
-from datetime import datetime
+from datetime import date
 import pandas as pd
 from connectors import intrinio_data
 from exception.exceptions import CalculationError, ValidationError, DataError
@@ -23,8 +23,10 @@ class TestStrategiesCalculator(unittest.TestCase):
         }
         data_frame = pd.DataFrame(df_dict)
         with self.assertRaises(ValidationError):
-            calculator.mark_to_market(data_frame, None)
-            calculator.mark_to_market(None, datetime.now())
+            calculator.mark_to_market(
+                data_frame, 'ticker', 'analysis_price', None)
+            calculator.mark_to_market(
+                None, 'ticker', 'analysis_price', date.today())
 
     def test_mark_to_market_df_invalid_columns(self):
         df_dict = {
@@ -33,7 +35,8 @@ class TestStrategiesCalculator(unittest.TestCase):
         }
         data_frame = pd.DataFrame(df_dict)
         with self.assertRaises(ValidationError):
-            calculator.mark_to_market(data_frame, datetime.now())
+            calculator.mark_to_market(
+                data_frame, 'ticker', 'analysis_price', date.today())
 
     def test_mark_to_market_valid(self):
         df_dict = {
@@ -41,10 +44,11 @@ class TestStrategiesCalculator(unittest.TestCase):
             'analysis_price': [10]
         }
         data_frame = pd.DataFrame(df_dict)
-        with patch.object(intrinio_data, 'get_latest_close_price',
-                          return_value=(datetime.now(), 20)):
+        with patch.object(intrinio_data, 'get_daily_stock_close_prices',
+                          return_value=({'2020-10-22': 20})):
 
-            mmt_df = calculator.mark_to_market(data_frame, datetime.now())
+            mmt_df = calculator.mark_to_market(
+                data_frame, 'ticker', 'analysis_price', date(2020, 10, 22))
 
             self.assertEqual(mmt_df['current_price'][0], 20)
             self.assertEqual(mmt_df['actual_return'][0], 1.0)
@@ -55,7 +59,8 @@ class TestStrategiesCalculator(unittest.TestCase):
             'analysis_price': [10]
         }
         data_frame = pd.DataFrame(df_dict)
-        with patch.object(intrinio_data, 'get_latest_close_price',
+        with patch.object(intrinio_data, 'get_daily_stock_close_prices',
                           side_effect=Exception("Not Found")):
             with self.assertRaises(DataError):
-                calculator.mark_to_market(data_frame, datetime.now())
+                calculator.mark_to_market(
+                    data_frame, 'ticker', 'analysis_price', date.today())

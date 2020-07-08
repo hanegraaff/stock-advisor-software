@@ -4,8 +4,7 @@
   with the Intrinio SDK
 """
 
-from datetime import datetime
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 import calendar
 from exception.exceptions import ValidationError
 
@@ -39,9 +38,29 @@ def get_year_date_range(year: int, extend_by_days: int):
         raise ValidationError(
             "Invalid extend_by_days. Must between 0 and 350", None)
 
-    start = datetime(year, 1, 1)
-    end = datetime(year, 12, 31) + timedelta(days=extend_by_days)
+    start = date(year, 1, 1)
+    end = date(year, 12, 31) + timedelta(days=extend_by_days)
     return(date_to_string(start), date_to_string(end))
+
+
+def get_month_period_range(period: object):
+    """
+      returns the first and last date of the month as dates given the 
+      Pandas period.
+
+      E.g.
+        Period('2018-01', 'M') -> ('2018-01-01', '2018-01-31')
+
+      Returns
+      -------
+      A tuple of strings containing the start and end date.
+    """
+    __validate_year__(period.year)
+
+    start = date(period.year, period.month, 1)
+    end = date(period.year, period.month, period.day)
+
+    return(start, end)
 
 
 def get_month_date_range(year: int, month: int):
@@ -80,7 +99,7 @@ def get_month_date_range_str(year: int, month: int):
     return(date_to_string(start), date_to_string(end))
 
 
-def date_to_string(date: object):
+def date_to_string(date: date):
     """
       returns a string representation of a date that is usable by the intrinio API
 

@@ -182,7 +182,7 @@ class Broker():
 
             for sec in new_portfolio.model['current_portfolio']['securities']:
                 if sec['order_id'] == order_id:
-                    sec['purchase_date'] = util.date_to_iso_utc_string(
+                    sec['purchase_date'] = util.datetime_to_iso_utc_string(
                         parser.parse(purchase_time))
                     sec['trade_state'] = 'FILLED'
                     sec['quantity'] = quantity

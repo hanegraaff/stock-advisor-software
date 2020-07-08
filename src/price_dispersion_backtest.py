@@ -3,20 +3,35 @@
 import argparse
 import logging
 import pandas as pd
-from datetime import datetime
+import pandas_market_calendars as mcal
+from datetime import date
 from datetime import timedelta
 from support import util
-from exception.exceptions import BaseError
 from connectors import intrinio_util
-from support.financial_cache import cache
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
 from strategies import calculator
-from model.ticker_file import TickerFile
-from support import constants
+from model.ticker_list import TickerList
+from support import constants, logging_definition
 
-
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] - %(message)s')
 log = logging.getLogger()
+
+
+def get_nearest_business_date(cal_date: date):
+    '''
+        given a calendar date, returns the nearest past business date
+    '''
+    nyse_cal = mcal.get_calendar('NYSE')
+
+    market_calendar = nyse_cal.schedule(
+        cal_date - timedelta(days=5), cal_date + timedelta(days=5))
+
+    business_date_index = market_calendar.index.get_loc(
+        str(cal_date), method='ffill')
+
+    business_date = market_calendar.iloc[
+        business_date_index].market_close.to_pydatetime().date()
+
+    return business_date
 
 
 def main():
@@ -25,29 +40,32 @@ def main():
     """
 
     description = """
-                A backtest for the PRICE_DISPERSION strategy
+                Backtest script for the PRICE_DISPERSION strategy.
 
-                It works by running the strategy on a monthly basis and then displaying
-                the average current returns vs the selected portolio returns.
+                This script will execute the strategy for each month of available data,
+                and compare the returns of the selected portfolio with the average of the 
+                supplied ticker list.
+                The script will show returns of a 1 month, 2 month and three month horizon
+                displayed as a Pandad Dataframe
 
               """
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("-ticker_file", help="Ticker Symbol file",
+    parser.add_argument("-ticker_list", help="Ticker Symbol File",
                         type=str, required=True)
     parser.add_argument(
         "-output_size", help="Number of selected securities", type=int, required=True)
 
     args = parser.parse_args()
 
-    ticker_file_name = args.ticker_file
+    ticker_file_name = args.ticker_list
     output_size = args.output_size
 
     log.info("Parameters:")
     log.info("Ticker File: %s" % ticker_file_name)
     log.info("Output Size: %d" % output_size)
 
-    ticker_list = []
+    ticker_list = None
 
     backtest_report = {
         'investment_period': [],
@@ -71,32 +89,35 @@ def main():
         'sel_tot_3M': []
     }
 
-    today = datetime.now()
+    today = date.today()
 
-    def backtest(year: int, month: int):
-        log.info("Peforming backtest for %d/%d" % (month, year))
-        data_end_date = intrinio_util.get_month_date_range(year, month)[1]
+    def backtest(analysis_period: str):
+        log.info("Performing backtest for %s" % analysis_period)
+
+        period = pd.Period(analysis_period)
+
+        data_end_date = intrinio_util.get_month_period_range(period)[1]
 
         strategy = PriceDispersionStrategy(
-            ticker_list, year, month, output_size)
+            ticker_list, period, None, output_size)
         strategy.generate_recommendation()
 
-        date_1m = data_end_date + timedelta(days=30)
-        date_2m = data_end_date + timedelta(days=60)
-        date_3m = data_end_date + timedelta(days=90)
+        date_1m = get_nearest_business_date(data_end_date + timedelta(days=30))
+        date_2m = get_nearest_business_date(data_end_date + timedelta(days=60))
+        date_3m = get_nearest_business_date(data_end_date + timedelta(days=90))
 
         portfolio_1m = calculator.mark_to_market(
-            strategy.recommendation_dataframe, date_1m)['actual_return'].mean() * 100
+            strategy.recommendation_dataframe, 'ticker', 'analysis_price', date_1m)['actual_return'].mean() * 100
         portfolio_2m = calculator.mark_to_market(
-            strategy.recommendation_dataframe, date_2m)['actual_return'].mean() * 100
+            strategy.recommendation_dataframe, 'ticker', 'analysis_price', date_2m)['actual_return'].mean() * 100
         portfolio_3m = calculator.mark_to_market(
-            strategy.recommendation_dataframe, date_3m)['actual_return'].mean() * 100
+            strategy.recommendation_dataframe, 'ticker', 'analysis_price', date_3m)['actual_return'].mean() * 100
 
-        all_stocks_1m = calculator.mark_to_market(strategy.raw_dataframe, date_1m)[
+        all_stocks_1m = calculator.mark_to_market(strategy.raw_dataframe, 'ticker', 'analysis_price', date_1m)[
             'actual_return'].mean() * 100
-        all_stocks_2m = calculator.mark_to_market(strategy.raw_dataframe, date_2m)[
+        all_stocks_2m = calculator.mark_to_market(strategy.raw_dataframe, 'ticker', 'analysis_price', date_2m)[
             'actual_return'].mean() * 100
-        all_stocks_3m = calculator.mark_to_market(strategy.raw_dataframe, date_3m)[
+        all_stocks_3m = calculator.mark_to_market(strategy.raw_dataframe, 'ticker', 'analysis_price', date_3m)[
             'actual_return'].mean() * 100
 
         backtest_report['investment_period'].append(
@@ -113,18 +134,19 @@ def main():
 
     try:
 
-        ticker_list = TickerFile.from_local_file(
-            constants.TICKER_DATA_DIR, ticker_file_name).ticker_list
+        ticker_list = TickerList.from_local_file("%s/%s" %
+                                                 (constants.TICKER_DATA_DIR, ticker_file_name))
 
-        backtest(2019, 5)
-        backtest(2019, 6)
-        backtest(2019, 7)
-        backtest(2019, 8)
-        backtest(2019, 9)
-        backtest(2019, 10)
-        backtest(2019, 11)
-        backtest(2019, 12)
-        backtest(2020, 1)
+        backtest('2019-05')
+        backtest('2019-06')
+        backtest('2019-07')
+        backtest('2019-08')
+        backtest('2019-09')
+        backtest('2019-10')
+        backtest('2019-11')
+        backtest('2019-12')
+        backtest('2020-01')
+        backtest('2020-02')
 
         backtest_dataframe = pd.DataFrame(backtest_report)
         pd.options.display.float_format = '{:.2f}%'.format
@@ -151,6 +173,7 @@ def main():
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))
+        raise e
         exit(-1)
 
 if __name__ == "__main__":

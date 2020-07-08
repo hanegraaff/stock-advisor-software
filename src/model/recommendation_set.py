@@ -1,6 +1,6 @@
 """Author: Mark Hanegraaff -- 2020
 """
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 import uuid
 import pytz
 import json
@@ -34,15 +34,15 @@ class SecurityRecommendationSet(BaseModel):
             },
             "valid_from": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date"
             },
             "valid_to": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date"
             },
             "price_date": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date"
             },
             "strategy_name": {
                 "type": "string",
@@ -54,7 +54,7 @@ class SecurityRecommendationSet(BaseModel):
             },
             "securities_set": {
                 "type": "array",
-                "minItems": 1,
+                "minItems": 0,
                 "items": {
                     "type": "object",
                     "required": [
@@ -70,16 +70,14 @@ class SecurityRecommendationSet(BaseModel):
     }
 
     model_s3_folder_prefix = constants.S3_RECOMMENDATION_SET_FOLDER_PREFIX
-    model_s3_object_name = constants.S3_RECOMMENDATION_SET_OBJECT_NAME
-
     model_name = "Security Recommendation Set"
 
-    def __init__(self):
-        pass
+    def __init__(self, model_dict: dict):
+        super().__init__(model_dict)
 
     @classmethod
-    def from_parameters(cls, creation_date: datetime, valid_from: datetime,
-                        valid_to: datetime, price_date: datetime,
+    def from_parameters(cls, creation_date: datetime, valid_from: date,
+                        valid_to: date, price_date: date,
                         strategy_name: str, security_type: str, securities_set: dict):
         '''
             Initializes This class by supplying all required parameters.
@@ -93,18 +91,19 @@ class SecurityRecommendationSet(BaseModel):
             }
         '''
 
-        if (strategy_name is None or strategy_name == "" or security_type is None or
+        '''if (strategy_name is None or strategy_name == "" or security_type is None or
                 security_type == "" or securities_set is None or len(securities_set) == 0):
             raise ValidationError(
                 "Could not initialize Portfolio objects from parameters", None)
+        '''
 
         try:
             cls.model = {
                 "set_id": str(uuid.uuid1()),
-                "creation_date": util.date_to_iso_utc_string(creation_date),
-                "valid_from": util.date_to_iso_string(valid_from),
-                "valid_to": util.date_to_iso_string(valid_to),
-                "price_date": util.date_to_iso_string(price_date),
+                "creation_date": util.datetime_to_iso_utc_string(creation_date),
+                "valid_from": valid_from.strftime("%Y-%m-%d"),
+                "valid_to": valid_to.strftime("%Y-%m-%d"),
+                "price_date": price_date.strftime("%Y-%m-%d"),
                 "strategy_name": strategy_name,
                 "security_type": security_type,
                 "securities_set": []
@@ -121,14 +120,14 @@ class SecurityRecommendationSet(BaseModel):
 
         return cls.from_dict(cls.model)
 
-    def is_current(self, current_date: datetime):
+    def is_current(self, comparison_date: date):
         """
             Returns True if this recommendation set is still current.
         """
         valid_from = parser.parse(
-            self.model['valid_from'])
+            self.model['valid_from']).date()
 
         valid_to = parser.parse(
-            self.model['valid_to'])
+            self.model['valid_to']).date()
 
-        return valid_from.timestamp() <= current_date.timestamp() <= valid_to.timestamp()
+        return valid_from <= comparison_date <= valid_to

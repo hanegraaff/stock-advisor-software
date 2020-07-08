@@ -68,7 +68,7 @@ class TestServicePortfolioManager(unittest.TestCase):
         "portfolio_id": "xxx",
         "set_id": "yyy",
         "creation_date": "2020-04-14T12:20:50.219487+00:00",
-        "price_date": "2020-03-31T04:00:00+00:00",
+        "price_date": "2020-03-31",
         "current_portfolio": {
             "securities": [{
                 "ticker_symbol": "INTC",
@@ -92,9 +92,9 @@ class TestServicePortfolioManager(unittest.TestCase):
     sr_dict = {
         "set_id": "yyyy",
         "creation_date": "2020-09-01T04:56:57.612693+00:00",
-        "valid_from": "2019-08-01T04:00:00+00:00",
-        "valid_to": "2019-08-31T04:00:00+00:00",
-        "price_date": "2019-09-01T02:34:12.876012+00:00",
+        "valid_from": "2019-08-01",
+        "valid_to": "2019-09-01",
+        "price_date": "2019-08-30",
         "strategy_name": "PRICE_DISPERSION",
         "security_type": "US Equities",
         "securities_set": [{
@@ -112,7 +112,7 @@ class TestServicePortfolioManager(unittest.TestCase):
     def test_update_portfolio_too_small(self):
         security_recommendation = SecurityRecommendationSet.from_dict(
             self.sr_dict)
-        portfolio = Portfolio()
+        portfolio = Portfolio(None)
         portfolio.create_empty_portfolio(security_recommendation)
 
         with self.assertRaises(ValidationError):
@@ -122,7 +122,7 @@ class TestServicePortfolioManager(unittest.TestCase):
     def test_update_portfolio_too_big(self):
         security_recommendation = SecurityRecommendationSet.from_dict(
             self.sr_dict)
-        portfolio = Portfolio()
+        portfolio = Portfolio(None)
         portfolio.create_empty_portfolio(security_recommendation)
 
         (new_p, updated) = portfolio_mgr_svc.update_portfolio(
@@ -140,7 +140,7 @@ class TestServicePortfolioManager(unittest.TestCase):
     def test_update_portfolio_empty_portfolio(self):
         security_recommendation = SecurityRecommendationSet.from_dict(
             self.sr_dict)
-        portfolio = Portfolio()
+        portfolio = Portfolio(None)
         portfolio.create_empty_portfolio(security_recommendation)
 
         (new_p, updated) = portfolio_mgr_svc.update_portfolio(
@@ -213,7 +213,7 @@ class TestServicePortfolioManager(unittest.TestCase):
 
         security_recommendation = SecurityRecommendationSet.from_dict(
             self.sr_dict)
-        portfolio = Portfolio()
+        portfolio = Portfolio(None)
         portfolio.create_empty_portfolio(security_recommendation)
         (new_p, updated) = portfolio_mgr_svc.update_portfolio(
             portfolio, security_recommendation, 1)

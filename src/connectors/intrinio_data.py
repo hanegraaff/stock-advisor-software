@@ -11,14 +11,17 @@ that are easier to consume by the application.
 import intrinio_sdk
 import atexit
 import requests
-from intrinio_sdk.rest import ApiException
+import logging
+import datetime
 import os
+import time
+from intrinio_sdk.rest import ApiException
 from exception.exceptions import DataError, ValidationError
 from connectors import intrinio_util
 from support.financial_cache import cache
-import logging
-import datetime
 from datetime import timedelta
+
+log = logging.getLogger()
 
 try:
     API_KEY = os.environ['INTRINIO_API_KEY']
@@ -34,6 +37,42 @@ SECURITY_API = intrinio_sdk.SecurityApi()
 
 
 INTRINIO_CACHE_PREFIX = 'intrinio'
+
+'''
+  Testing APIs using requests package
+'''
+
+
+def retry_server_errors(func):
+    '''
+        decorator that will retry intrinio server side errors, and let
+        others pass through.
+
+        Retries the error up to 5 times and sleeps 2 seconds between retries
+    '''
+    def wrapper(*args, **kwargs):
+        latest_exception = None
+        num_retries = 5
+        for attempt in range(1, num_retries + 1):
+            try:
+                return func(*args, **kwargs)
+            except DataError as de:
+                latest_exception = de
+                cause = de.cause
+                if cause == None or not hasattr(cause, 'status') or not isinstance(cause.status, int):
+                    raise de
+
+                status = int(cause.status)
+                if status >= 500:
+                    log.info("Retring Intrinio Server side error after a pause: [%d]. Attempt %d of %d" % (
+                        status, attempt, num_retries))
+                    time.sleep(2)
+                else:
+                    break
+
+        raise latest_exception
+
+    return wrapper
 
 
 def test_api_endpoint():
@@ -54,10 +93,15 @@ def test_api_endpoint():
 
     if not response.ok:
         raise DataError(
-            "Invalid response from Intrinio Endpoint", Exception(r.text))
+            "Invalid response from Intrinio Endpoint", Exception(response.text))
 
 
-def get_target_price_std_dev(ticker: str, start_date: datetime, end_date: datetime):
+'''
+  Pricing statement APIs using the SECURITY_API client
+'''
+
+
+def get_zacks_target_price_std_dev(ticker: str, start_date: datetime, end_date: datetime):
     """
       retrieves the 'zacks_target_price_std_dev' data point for the supplied date 
       range. see the '_get_company_historical_data()' pydoc for specific information
@@ -69,7 +113,7 @@ def get_target_price_std_dev(ticker: str, start_date: datetime, end_date: dateti
     )
 
 
-def get_target_price_mean(ticker: str, start_date: datetime, end_date: datetime):
+def get_zacks_target_price_mean(ticker: str, start_date: datetime, end_date: datetime):
     """
       retrieves the 'zacks_target_price_mean' data point for the supplied date 
       range. see the '_get_company_historical_data()' pydoc for specific information
@@ -81,7 +125,7 @@ def get_target_price_mean(ticker: str, start_date: datetime, end_date: datetime)
     )
 
 
-def get_target_price_cnt(ticker: str, start_date: datetime, end_date: datetime):
+def get_zacks_target_price_cnt(ticker: str, start_date: datetime, end_date: datetime):
     """
       retrieves the 'zacks_target_price_cnt' data point for the supplied date 
       range. see the '_get_company_historical_data()' pydoc for specific information
@@ -93,6 +137,7 @@ def get_target_price_cnt(ticker: str, start_date: datetime, end_date: datetime):
     )
 
 
+@retry_server_errors
 def get_daily_stock_close_prices(ticker: str, start_date: datetime, end_date: datetime):
     '''
       Returns a list of historical daily stock prices given a ticker symbol and
@@ -118,8 +163,8 @@ def get_daily_stock_close_prices(ticker: str, start_date: datetime, end_date: da
       }
     '''
 
-    start_date_str = intrinio_util.date_to_string(start_date)
-    end_date_str = intrinio_util.date_to_string(end_date)
+    start_date_str = intrinio_util.date_to_string(start_date).replace('-', '')
+    end_date_str = intrinio_util.date_to_string(end_date).replace('-', '')
 
     price_dict = {}
 
@@ -171,6 +216,167 @@ def get_latest_close_price(ticker, price_date: datetime, max_looback: int):
     price_date = sorted(list(price_dict.keys()), reverse=True)[0]
 
     return (price_date, price_dict[price_date])
+
+'''
+  Price indicator APIs using the SECURITY_API client
+'''
+
+
+@retry_server_errors
+def get_macd_indicator(ticker: str, start_date: datetime, end_date: datetime,
+                       fast_period: int, slow_period: int, signal_period: int):
+    '''
+      Returns a dictionary of MACD indicators given a ticker symbol,
+      a date range and necessary MACD parameters.  
+      Currently only returns one page of 100 results
+
+      Parameters
+      ----------
+      ticker : str
+        Ticker Symbol
+      start_date : object
+        The beginning price date as python date object
+      end_date : object
+        The end price date as python date object
+      fast_period: int
+        the MACD fast period parameter
+      slow_perdiod: int
+        the MACD slow period parameter
+      signal_period:
+        the MACD signal period parameter
+
+      Returns
+      -----------
+      a dictionary of date->price like this
+      {
+          "2020-05-29": {
+              "macd_histogram": -0.5565262759342229,
+              "macd_line": 9.361568685377279,
+              "signal_line": 9.918094961311501
+          },
+          "2020-05-28": {
+              "macd_histogram": -0.3259226480613542,
+              "macd_line": 9.731303882233703,
+              "signal_line": 10.057226530295058
+          }
+      }
+    '''
+
+    start_date_str = intrinio_util.date_to_string(
+        start_date).replace('-', '').replace('-', '')
+    end_date_str = intrinio_util.date_to_string(
+        end_date).replace('-', '').replace('-', '')
+
+    macd_dict = {}
+
+    cache_key = "%s-%s-%s-%s-%d.%d.%d-%s" % (INTRINIO_CACHE_PREFIX,
+                                             ticker, start_date_str, end_date_str, fast_period, slow_period, signal_period, "tech-macd")
+    api_response = cache.read(cache_key)
+
+    if api_response is None:
+        try:
+            api_response = SECURITY_API.get_security_price_technicals_macd(
+                ticker, fast_period=fast_period, slow_period=slow_period, signal_period=signal_period, price_key='close', start_date=start_date, end_date=end_date, page_size=100)
+
+            cache.write(cache_key, api_response)
+        except ApiException as ae:
+            raise DataError("API Error while reading MACD indicator from Intrinio Security API: ('%s', %s - %s (%d, %d, %d))" %
+                            (ticker, start_date_str, end_date_str, fast_period, slow_period, signal_period), ae)
+        except Exception as e:
+            raise ValidationError("Unknown Error while reading MACD indicator from Intrinio Security API: ('%s', %s - %s (%d, %d, %d))" %
+                                  (ticker, start_date_str, end_date_str, fast_period, slow_period, signal_period), e)
+
+    macd_list = api_response.technicals
+
+    if len(macd_list) == 0:
+        raise DataError("No MACD indicators returned from Intrinio Security API: ('%s', %s - %s (%d, %d, %d))" %
+                        (ticker, start_date_str, end_date_str, fast_period, slow_period, signal_period), None)
+
+    for macd in macd_list:
+        macd_dict[intrinio_util.date_to_string(macd.date_time)] = {
+            "macd_histogram": macd.macd_histogram,
+            "macd_line": macd.macd_line,
+            "signal_line": macd.signal_line
+        }
+
+    return macd_dict
+
+
+@retry_server_errors
+def get_sma_indicator(ticker: str, start_date: datetime, end_date: datetime,
+                      period_days: int):
+    '''
+      Returns a dictionary of SMA (simple moving average) indicators given a 
+      ticker symbol, a date range and the period.  
+
+      Currently only returns one page of 100 results
+
+      Parameters
+      ----------
+      ticker : str
+        Ticker Symbol
+      start_date : object
+        The beginning price date as python date object
+      end_date : object
+        The end price date as python date object
+      period_days: int
+        The number of price days included in this average
+
+
+      Returns
+      -----------
+      a dictionary of date->price like this
+      {
+        "2020-05-29": 282.51779999999997,
+        "2020-05-28": 281.09239999999994,
+        "2020-05-27": 279.7845999999999,
+        "2020-05-26": 278.26659999999987,
+        "2020-05-22": 277.4913999999999,
+        "2020-05-21": 276.07819999999987,
+        "2020-05-20": 275.2497999999999
+      }
+
+    '''
+
+    start_date_str = intrinio_util.date_to_string(
+        start_date).replace('-', '').replace('-', '')
+    end_date_str = intrinio_util.date_to_string(
+        end_date).replace('-', '').replace('-', '')
+
+    sma_dict = {}
+
+    cache_key = "%s-%s-%s-%s-%d-%s" % (INTRINIO_CACHE_PREFIX,
+                                       ticker, start_date_str, end_date_str, period_days, "tech-sma")
+    api_response = cache.read(cache_key)
+
+    if api_response is None:
+        try:
+            api_response = SECURITY_API.get_security_price_technicals_sma(
+                ticker, period=period_days, price_key='close', start_date=start_date, end_date=end_date, page_size=100)
+
+            cache.write(cache_key, api_response)
+        except ApiException as ae:
+            raise DataError("API Error while reading SMA indicator from Intrinio Security API: ('%s', %s - %s (%d))" %
+                            (ticker, start_date_str, end_date_str, period_days), ae)
+        except Exception as e:
+            raise ValidationError("Unknown Error while reading SMA indicator from Intrinio Security API: ('%s', %s - %s (%d))" %
+                                  (ticker, start_date_str, end_date_str, period_days), e)
+
+    sma_list = api_response.technicals
+
+    if len(sma_list) == 0:
+        raise DataError("No SMA indicators returned from Intrinio Security API: ('%s', %s - %s (%d))" %
+                        (ticker, start_date_str, end_date_str, period_days), None)
+
+    for sma in sma_list:
+        sma_dict[intrinio_util.date_to_string(sma.date_time)] = sma.sma
+
+    return sma_dict
+
+
+'''
+  Finacial statement APIs using the FUNDAMENTALS_API client
+'''
 
 
 def get_historical_revenue(ticker: str, year_from: int, year_to: int):
@@ -332,6 +538,7 @@ def _transform_financial_stmt(std_financials_list: list, tag_filter_list: list):
     return results
 
 
+@retry_server_errors
 def _read_historical_financial_statement(ticker: str, statement_name: str, year_from: int, year_to: int, tag_filter_list: list):
     """
       This helper function will read standardized fiscal year end financials from the Intrinio fundamentals API
@@ -404,6 +611,7 @@ def _read_historical_financial_statement(ticker: str, statement_name: str, year_
     return hist_statements
 
 
+@retry_server_errors
 def _read_company_data_point(ticker: str, tag: str):
     """
       Helper function that will read the Intrinio company API for the supplied ticker
@@ -437,6 +645,7 @@ def _read_company_data_point(ticker: str, tag: str):
     return api_response
 
 
+@retry_server_errors
 def _get_company_historical_data(ticker: str, start_date: str, end_date: str, tag: str):
     """
       Helper function that will read the Intrinio company API for the supplied date range

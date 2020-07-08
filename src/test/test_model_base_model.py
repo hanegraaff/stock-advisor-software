@@ -14,12 +14,13 @@ class TestModel(BaseModel):
         A test Model class used to support this testing class 
     """
 
+    def __init__(self, model_dict: dict):
+        super().__init__(model_dict)
+
     schema = {}
 
     model_s3_folder_prefix = "test"
-    model_s3_object_name = "test"
-
-    model_name = "Portfolio"
+    model_name = "TestModel"
 
 
 class TestBaseModel(unittest.TestCase):
@@ -34,7 +35,7 @@ class TestBaseModel(unittest.TestCase):
                          side_effect=AWSError("test exception", None)):
 
             with self.assertRaises(AWSError):
-                TestModel.from_s3("sa")
+                TestModel.from_s3("sa", 'test-object')
 
     def test_from_s3_with_boto_error_2(self):
         with patch.object(aws_service_wrapper, 'cf_read_export_value',
@@ -43,7 +44,7 @@ class TestBaseModel(unittest.TestCase):
                          return_value=None):
 
             with self.assertRaises(AWSError):
-                TestModel.from_s3("sa")
+                TestModel.from_s3("sa", 'test-object')
 
     def test_save_to_s3_with_boto_error(self):
         with patch.object(aws_service_wrapper, 'cf_read_export_value',
@@ -52,5 +53,5 @@ class TestBaseModel(unittest.TestCase):
                          side_effect=AWSError("test exception", None)):
 
             with self.assertRaises(AWSError):
-                test_model = TestModel()
-                test_model.save_to_s3("sa")
+                test_model = TestModel({})
+                test_model.save_to_s3("sa", 'test-object')

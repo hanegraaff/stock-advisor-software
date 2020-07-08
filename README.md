@@ -5,7 +5,7 @@ This repo is part of the Stock Advisor project found here:
 
 https://github.com/hanegraaff/stock-advisor-infrastructure
 
-This project contains the Stock Advisor application software. It is organized into two services that run as docker images. The first is a recommendation system that generates stock predictions based on market sentiment, and the second is a portfolio manager that executes trades based on those same predictions.
+This project contains the Stock Advisor application software. It is organized into two services that run as docker images. The first is a recommendation service that generates predictions based on various trading strategies, and the second is a portfolio manager that executes trades based on those same predictions.
 
 
 # Table of Contents
@@ -15,17 +15,17 @@ This project contains the Stock Advisor application software. It is organized in
         * [Intrinio API Key](#intrinio-api-key)
         * [TDAmeritrade Keys](#tdameritrade-keys)
     * [Develpment Environment](#develpment-environment)
+* [Trading Strategies](#trading-strategies)
+    * [Price Dispersion Strategy](#price-dispersion-strategy)
+        * [Backtest](#price-dispersion-backtest)
+    * [MACD Crossover Strategy](#macd-crossover-strategy)
+        * [Backtest](#macd-crossover-backtest)
 * [Securities Recommendation Service](#securities-recommendation-service)
-    * [Release Notes](#recommendation-service-release-notes)
-    * [Algorithm Description](#algorithm-description)
     * [Running the service from the command line](#running-the-service-from-the-command-line)
-        * [Production mode](#production-mode)
-        * [Test mode](#test-mode)
     * [Output](#recommendation-service-output)
     * [Caching of financial data](#caching-of-financial-data)
     * [Backtesting](#backtesting)
 * [Portfolio Manager](#portfolio-manager)
-    * [Release Notes](#portfolio-manager-release-notes)
     * [Trading Strategy](#trading-strategy)
     * [Running the service from the command line](#running-the-portfolio-manager-from-the-command-line)
     * [Output](#portfolio-manager-output)
@@ -36,7 +36,7 @@ This project contains the Stock Advisor application software. It is organized in
 * [Unit Testing](#unit-testing)
 
 # Financial Brokerage and Data
-This software relies on financial data to perform its calculations, specifically it requires current and historical pricing information as well as analyst target price predictions. As of this version, data is sourced from Intrinio, though other providers may be supported in the future.
+This software relies on a range of financial data to perform its calculations. As of this version, data is sourced from Intrinio, though other providers may be supported in the future.
 
 Intrinio offers free access to their sandbox, which gives developers access to a limited dataset comprising of the DOW30, and the results presented here are based on that list. A paid subscription allows access to a much larger universe of stocks.
 
@@ -70,7 +70,7 @@ here:
 
 https://github.com/hanegraaff/TDAmeritrade-api-authentication
 
-As of this version you must manually create an authorization code and an inital refresh token that will be valid for 3 months, after which the process must be repeated.
+As of this version you must manually create an authorization code and an initial refresh token that will be valid for 3 months, after which the process must be repeated.
 
 Once you generate these artifacts, you must save them in the environment like this:
 
@@ -80,7 +80,7 @@ export TDAMERITRADE_CLIENT_ID=[your TDAmeritrade Client ID/Consumer Key]
 export TDAMERITRADE_REFRESH_TOKEN=[your TDAmeritrade refresh token]
 ```
 
-## Develpment Environment
+## Development Environment
 ```pip install -r requirements.txt```
 
 It is highly recommended to run this in a virtual environment:
@@ -101,11 +101,117 @@ python3.8 -m venv venv
 
 All scripts must be executed from the ```src``` folder.
 
+# Trading Strategies
+All recommendations produced by the Securities Recommendation Service are created using Trading Strategies which are located in the ```strategies``` module of this software. A strategy is simply an algorithm that reads a list of securities (currently US Equities), downloads all necessary financial data and either ranks or filters them to produce a subset that is predicted to outperform their peers based on the algorithm's calculations. 
 
-# Securities Recommendation Service
-![Security Recommendation Service Design](doc/recommendation-service.png)
+All strategies are implemented as classes that derive from the ```BaseStrategy``` Abstract Base Class, and expose a consistent interface. Each is self contained in the sense that it must be able to initialize using a configuration file stored either locally or in S3, the latter being how strategies are initialized in production. They can also be initialized using a constructor, a technique which is useful when backtesting or performing other types of tests.
 
-The Securities Recommendation service is a component of the Stock Advisor system that generates monthly US Equities recommendations using a market sentiment algorithm that ranks stocks based on the level of analyst target price agreement. It is based on the findings of paper like these:
+The main input to a Trading Strategy is a list of ticker symbols used a basis for the analysis and as of this version, all available strategies are based on US Equities.
+
+Each list is represented using a ```TickerList``` object and persisted using a JSON document and like other inputs, they may be sourced locally or from S3.
+
+Here is an example of a (trimmed) list representing the DOW30.
+
+```JSON
+{
+	"list_name": "DOW30",
+	"list_type": "US_EQUITIES",
+	"comparison_symbol": "DIA",
+	"ticker_symbols":[
+		"AAPL",
+		"AXP",
+		"BA",
+		"CAT",
+		"CSCO",
+		"CVX",
+		"GE",
+		"GS",
+		"HD",
+		"IBM",
+		"INTC",
+		"..."
+	]
+}
+```
+
+When running in production, inputs are defined in a configuration file and are supplied to a strategy during initialization. This configuration identifies the appropriate ticker list and defines other static parameters used by the strategy.
+
+Here is an example section for the Price Dispersion strategy:
+
+```ini
+[price_dispersion_strategy]
+ticker_list_file_name=djia30.json
+output_size=3
+```
+
+Next, is an example of a strategy that is initialized using configuration. The application namespace is used to identify the S3 bucket used to store inputs. All inputs can be soured locally or from S3. In fact if an input is sourced from S3 and is not found, this software will look for a suitable local alternative and stage it to S3. This is done to simplify the preparation work when new strategies are introduced.
+
+```python
+from support import constants
+from support.configuration import Configuration
+
+app_namespae = 'sa'
+
+config = Configuration.try_from_s3(
+    constants.STRATEGY_CONFIG_FILE_NAME, app_namespae)
+pd_strategy = PriceDispersionStrategy.from_configuration(config, app_namespae)
+```
+
+Alternatively, strategies can be initialized using a plain constructor. The two methods are functionally equivalent.
+
+```python
+from model.ticker_list import TickerList
+
+ticker_list = TickerList.from_local_file(
+            "%s/djia30.json" % (constants.APP_DATA_DIR))
+
+pd_strategy = PriceDispersionStrategy(
+            ticker_list, '2020-06', date(2020, 2, 22), 3)
+```
+
+The output of a strategy is a RecommendationSet object which contains the list of recommended securities and a date range indicating its valid duration. Each strategy is different, and some will produce recommendations that can change daily (e.g. MACD crossover strategy) while others will last much longer (e.g. Price Dispersion Strategy)
+
+Once a strategy is initialized, it can be executed like this. the ```display_results``` method display all intermediate data and final results to the screen, and is optional.
+
+```python
+pd_strategy.generate_recommendation()
+pd_strategy.display_results()
+
+# this is the final recommendation
+recommendation_set = pd_strategy.recommendation_set
+```
+
+And here is what the recommendation will look like:
+
+```JSON
+{
+    "set_id": "5d6c5a42-b54d-11ea-a412-acbc329ef75f",
+    "creation_date": "2020-06-23T12:30:47.271203+00:00",
+    "valid_from": "2020-06-01",
+    "valid_to": "2020-06-30",
+    "price_date": "2020-05-31",
+    "strategy_name": "PRICE_DISPERSION",
+    "security_type": "US Equities",
+    "securities_set": [
+        {
+            "ticker_symbol": "BA",
+            "price": 145.85
+        },
+        {
+            "ticker_symbol": "GE",
+            "price": 6.57
+        },
+        {
+            "ticker_symbol": "XOM",
+            "price": 45.47
+        }
+    ]
+}
+
+```
+
+## Price Dispersion Strategy
+This strategy generates monthly US Equities recommendations using a market sentiment algorithm that ranks stocks based on the level of analyst target price agreement, and is based on the findings of paper like these:
 
 |Paper|Author(s)|
 |--|--|
@@ -115,254 +221,84 @@ The Securities Recommendation service is a component of the Stock Advisor system
 
 They suggest, among other things, that when taken individually or even on average, analyst price targets are not a good predictor of returns, but the degree of agreement/disagreement is.
 
-The system is capable of producing recommendations that are valid throughout the month,
-and when running daily it will ensure that recommendations are current and that new ones will be created when the old ones expire.
+The strategy is designed to run once per month once all price forecasts are available; analysts typically update their forecasts on a monthly basis. Recommendations that result from this strategy are valid for the entire calendar month and are only updated at the beginning of following month.
 
-## Recommendation Service Release Notes
-This is an initial version that offers the following features
-
-* Ability to rank securities and generate recommendation.
-* Local caching of financial data
-* Back testing capability
-* Ability to run inside a Docker container
-* Integrate into Stock Advisor Infrastructure, specifically ECS.
-
-## Algorithm Description
-The algorithm reads a list of ticker symbols and downloads various financial data points. It then ranks each security into deciles, with the lowest decile containing stocks with the highest level of analyst price agreement and the highest decile containing stocks with the lowest price agreement. It then sorts each decile by expected returns, and returns a subset of the list. The number of securities that are returned are specified in the command using the ```-output-size``` option.
-
-These are the specific steps:
-
-1) Download financial data for each symbol:
+### Algorithm
+1) For each ticker symbol in the securities list, download:
     - Current Price
     - Analyst price forecast average
     - Analyst price forecast standard deviation
     - Analyst price forecast count (i.e. total forecasts)
-2) Normalize the standard deviation by converting it into a relative percentage.
-3) Rank the portfolio by this percentage and sort into deciles. Sort each decile by expected return.
+2) Normalize the standard deviation by converting it into a percentage relative to the price.
+3) Load data into a Pandas DataFrame, rank it by this percentage and sort into deciles. Sort each decile by expected return.
 4) Select a subset from the top decile(s). This will return stocks with the largest level of disagreement.
+5) ???
+6) Profit!
 
-## Running the service from the command line
-The easiest way to run this service is via the command line. This section describes how.
-
-```
-src >>python securities_recommendation_svc.py -h
-usage: securities_recommendation_svc.py [-h] -ticker_file TICKER_FILE -output_size
-                                   OUTPUT_SIZE
-                                   {test,production} ...
-
-Reads a list of US Equity ticker symbols and recommends a subset of them based
-on the degree of analyst target price agreement, specifically it will select
-stocks with the lowest agreement and highest predicted return. The input
-parameters consist of a file with a list of of ticker symbols, and the month
-and year period for the recommendations. The output is a JSON data structure
-with the final selection. When running this script in "production" mode, the
-analysis period is determined at runtime, and the system will interact with the AWS
-infrastructure to read inputs and store outputs.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -ticker_file TICKER_FILE
-                        Ticker Symbol local file path
-  -output_size OUTPUT_SIZE
-                        Number of selected securities
-
-environment:
-  runtime environment
-
-  {test,production}     the runtime environment of the application. It can be
-                        either "test" or "production"
-    test                Test mode. Analysis period and current date must be
-                        passed explicitly
-    production          Production mode. Analysis period and current date are
-                        determined at runtime
-```
-
-Where ```-ticker_file``` represents a local file or s3 object used to represent the universe of stocks that will be considered. It must contain
-a single ticker symbol per line.
+### Output
+The following is the output that is displayed when the ```display_results()``` method is called.
 
 ```
-AAPL
-AXP
-BA
-CAT
-CSCO
-CVX
-...
-```
-
-and ```-output_size``` represents the total number of recommended
-stocks resulting from the analysis.
-
-The script can be run in two modes, representing different runtime environments.
-
-### Production mode
-**Production** mode will automatically determine the analysis period based on the calendar date, and display actual returns using the same. It will also use S3 to read the inputs and store results. This is the mode that must be used when running in ECS.
-
-In this mode the service will identify the appropriate AWS infrastructure using a combination of CloudFormation exports and a namespace suppled to the command line (```-app_namespace```) used to avoid collisions. So for example, if the application namespace is set to ```sa```, the S3 bucket will be identified using the ```sa-data-bucket-name``` export. These are defined in the ```support.constants``` module.
-
-Finally, the recommendation set will be stored in s3, and a new one will only be created when the existing one expires. If the recommendation set is still valid, the script will quietly exit
-
-```
-src >>python securities_recommendation_svc.py production -h
-usage: securities_recommendation_svc.py production [-h] -app_namespace
-                                            APP_NAMESPACE
-
-optional arguments:
--h, --help            show this help message and exit
--app_namespace APP_NAMESPACE
-                        Application namespace used to identify AWS resources
-```
-
-For example:
-```
-python securities_recommendation_svc.py -ticker_file djia30.txt -output_size 3 production -app_namespace sa
-```
-
-This example generates a 3 stock recommendation using the DOW30 as an input, and using the latest analysis period based on calendar date.
-
-### Test mode
-**Test** mode expects the analysis period to be supplied using the command line, and will not interact with AWS, but rather rely on local resources. This mode is used when running and testing outside the production environment, and may also be used to run historically.
-
-In this mode, ```-price_date``` is optional, and is used to determine the price date used to display the current returns of the selection.
-    
-```
-src >>python securities_recommendation_svc.py test -h
-usage: securities_recommendation_svc.py test [-h] -analysis_month ANALYSIS_MONTH
-                                        -analysis_year ANALYSIS_YEAR
-                                        [-price_date PRICE_DATE]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -analysis_month ANALYSIS_MONTH
-                        Analysis period's month
-  -analysis_year ANALYSIS_YEAR
-                        Analysis period's year
-  -price_date PRICE_DATE
-                        Price Date (YYYY/MM/DD) used to compute current
-                        returns
-
-```
-
-For example:
-```
-python securities_recommendation_svc.py -ticker_file djia30.txt -output_size 3 test -analysis_year 2020 -analysis_month 1 -price_date 2020/03/01 
-```
-
-This will generate a 3 stock recommendation using a local ticker file of the DOW 30 using an analysis period of 01/2020 and a price date of 03/01
-
-```analysis_year``` / ```analysis_month``` represent the financial period of the analyst forecasts, and ```price_date``` is the price date used to calculate the portfolio's current returns.
-
-
-### Recommendation Service Output
-The main output is a JSON Document with the portfolio recommendation.
-
-```
-[INFO] - 
 [INFO] - Recommended Securities
 [INFO] - {
-    "set_id": "bda2de4e-7ec6-11ea-86e7-acbc329ef75f",
-    "creation_date": "2020-04-15T03:11:03.841242+00:00",
-    "valid_from": "2020-03-01T00:00:00-05:00",
-    "valid_to": "2020-03-31T00:00:00-04:00",
-    "price_date": "2020-03-31T00:00:00-04:00",
+    "set_id": "5d6c5a42-b54d-11ea-a412-acbc329ef75f",
+    "creation_date": "2020-06-23T12:30:47.271203+00:00",
+    "valid_from": "2020-06-01",
+    "valid_to": "2020-06-30",
+    "price_date": "2020-05-31",
     "strategy_name": "PRICE_DISPERSION",
     "security_type": "US Equities",
     "securities_set": [
         {
             "ticker_symbol": "BA",
-            "price": 152.28
-        },
-        {
-            "ticker_symbol": "XOM",
-            "price": 37.5
+            "price": 145.85
         },
         {
             "ticker_symbol": "GE",
-            "price": 7.89
+            "price": 6.57
+        },
+        {
+            "ticker_symbol": "XOM",
+            "price": 45.47
         }
     ]
-```
-Additionally, the program will display a Pandas Data Frame containing the ranked stocks used to select the final portfolio, and an indication of its relative performance compared to the average of all all supplied stocks.
-```
+}
 [INFO] - 
-[INFO] - Recommended Securities Return: 19.49%
-[INFO] - Average Return: 4.77%
+[INFO] - Recommended Securities Return: 12.83%
+[INFO] - Average Return: 1.64%
 [INFO] - 
-[INFO] - Analysis Period - 8/2019, Actual Returns as of: 2019/10/30
+[INFO] - Analysis Period - 2020-05, Actual Returns as of: 2020-06-22
 analysis_period ticker  dispersion_stdev_pct  analyst_expected_return  actual_return  decile
-         2019-8     GE                30.652                    0.470          0.225       9
-         2019-8   INTC                15.420                    0.136          0.194       9
-         2019-8   AAPL                14.518                    0.063          0.165       9
-         2019-8    UTX                13.414                    0.191          0.104       8
-         2019-8    MMM                12.581                    0.116          0.041       8
-         2019-8     PG                13.586                   -0.050          0.039       8
-         2019-8    PFE                12.527                    0.246          0.082       7
-         2019-8     GS                11.635                    0.223          0.058       7
-         2019-8    CAT                10.072                    0.220          0.179       6
-         2019-8     BA                 9.590                    0.184         -0.050       6
-         2019-8   MSFT                10.812                    0.093          0.049       6
-         2019-8    XOM                 8.444                    0.222         -0.011       5
-         2019-8    NKE                 9.515                    0.102          0.067       5
-         2019-8    UNH                 7.894                    0.248          0.089       4
-         2019-8   CSCO                 8.093                    0.218          0.016       4
-         2019-8    WMT                 8.045                   -0.007          0.034       4
-         2019-8    IBM                 7.586                    0.157         -0.002       3
-         2019-8    AXP                 7.826                    0.094         -0.019       3
-         2019-8    MCD                 7.857                    0.021         -0.097       3
-         2019-8    MRK                 7.522                    0.040         -0.003       2
-         2019-8    TRV                 7.433                    0.038         -0.117       2
-         2019-8    JPM                 7.262                    0.113          0.144       1
-         2019-8     VZ                 6.668                    0.043          0.046       1
-         2019-8     HD                 6.855                   -0.051          0.037       1
-         2019-8    CVX                 5.515                    0.171         -0.012       0
-         2019-8    JNJ                 5.205                    0.160          0.035       0
-         2019-8      V                 5.398                    0.095         -0.009       0
+        2020-05     BA                36.051                    0.445          0.293       9
+        2020-05     GE                28.961                    0.355          0.072       9
+        2020-05    XOM                26.059                    0.133          0.021       9
+        2020-05     GS                19.965                    0.088          0.035       8
+        2020-05    CAT                20.156                    0.040          0.047       8
+        2020-05    CVX                15.403                    0.143         -0.001       7
+        2020-05    PFE                15.243                    0.090         -0.133       7
+        2020-05    NKE                15.452                    0.016          0.009       7
+        2020-05    TRV                14.848                    0.156          0.086       6
+        2020-05   INTC                15.180                    0.011         -0.045       6
+        2020-05     KO                10.536                    0.141         -0.020       5
+        2020-05    IBM                10.480                    0.063         -0.031       5
+        2020-05   AAPL                13.330                    0.004          0.129       5
+        2020-05    AXP                10.080                    0.107          0.046       4
+        2020-05   CSCO                 9.905                    0.022         -0.056       4
+        2020-05    MCD                 9.181                    0.088          0.006       3
+        2020-05    UNH                 8.997                    0.050         -0.040       3
+        2020-05    MMM                 9.620                    0.011          0.002       3
+        2020-05    WMT                 8.167                    0.070         -0.019       2
+        2020-05   MSFT                 8.276                    0.062          0.095       2
+        2020-05    JPM                 8.048                    0.083         -0.006       1
+        2020-05      V                 8.077                    0.028         -0.001       1
+        2020-05     HD                 7.568                   -0.047          0.003       1
+        2020-05    MRK                 6.081                    0.157         -0.049       0
+        2020-05     PG                 6.668                    0.132          0.016       0
+        2020-05     VZ                 5.883                    0.073         -0.030       0
 ```
 
-When a new portfolio is generated and the service is running in ```production``` mode, an SNS event will be published resulting in the below email/sms notification.
-
-```
-From: sa-app-notification-topic (no-reply@sns.amazonaws.com)
-To: Me
-
-A New Stock Recommendation is available for the month of April
-
-
-Ticker Symbol: BA
-Ticker Symbol: GE
-Ticker Symbol: XOM
-```
-
-The previous output illustrates what happens when a new recommendation is created. While running in ```test``` mode always creates a new recommendation, ```production``` mode will first check for an existing recommendation in S3 and only create a new one if one cannot be found or if it is expired based on ```valid_from``` ```valid_to``` date range. If the recommendation is still valid, the service will quietly exit and the output will look like this:
-
-```
-[INFO] - Parameters:
-[INFO] - Environment: PRODUCTION
-[INFO] - Ticker File: djia30.txt
-[INFO] - Output Size: 3
-[INFO] - Analysis Month: 4
-[INFO] - Analysis Year: 2020
-[INFO] - Reading ticker file from s3 bucket
-[INFO] - Loading existing recommendation set from S3
-[INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/security-recommendation-set.json --> ./app_data/security-recommendation-set.json
-[INFO] - Recommendation set is still valid. There is nothing to do
-```
-
-## Caching of financial data
-All financial data is saved to a local cache to reduce throttling and API limits when using the Intrinio API. As of this version the data is set to never expire, and the cache will grow to a maximum size of 4GB.
-
-The cache is located in the following path:
-
-```
-./financial-data/
-./financial-data/cache.db
-```
-
-To delete or reset the contents of the cache, simply delete entire ```./financial-data/``` folder
-
-
-## Backtesting
-It is possible to backtest this strategy by running the ```price_dispersion_backtest.py``` script. It works by running the strategy from 05/2019 to 1/2020 and comparing the returns of the selected portfolio with the average of the list supplied to it.
+### Price Dispersion Backtest
+It is possible to backtest this strategy by running the ```price_dispersion_backtest.py``` script. It works by running the strategy from 05/2019 to 02/2020 and comparing the returns of the selected portfolio with the average of the list supplied to it.
 
 Example:
 
@@ -371,15 +307,16 @@ Example:
 [INFO] - Parameters:
 [INFO] - Ticker File: djia30.txt
 [INFO] - Output Size: 3
-[INFO] - Peforming backtest for 5/2019
-[INFO] - Peforming backtest for 6/2019
-[INFO] - Peforming backtest for 7/2019
-[INFO] - Peforming backtest for 8/2019
-[INFO] - Peforming backtest for 9/2019
-[INFO] - Peforming backtest for 10/2019
-[INFO] - Peforming backtest for 11/2019
-[INFO] - Peforming backtest for 12/2019
-[INFO] - Peforming backtest for 1/2020
+[INFO] - Performing backtest for 5/2019
+[INFO] - Performing backtest for 6/2019
+[INFO] - Performing backtest for 7/2019
+[INFO] - Performing backtest for 8/2019
+[INFO] - Performing backtest for 9/2019
+[INFO] - Performing backtest for 10/2019
+[INFO] - Performing backtest for 11/2019
+[INFO] - Performing backtest for 12/2019
+[INFO] - Performing backtest for 1/2020
+[INFO] - Performing backtest for 2/2020
 investment_period  ticker_sample_size  avg_ret_1M  sel_ret_1M  avg_ret_2M  sel_ret_2M  avg_ret_3M  sel_ret_3M
           2019/05                  12       8.09%       9.95%      11.17%      12.31%       8.74%       5.49%
           2019/06                  26       2.35%       3.56%      -2.00%     -10.78%       0.38%      -4.30%
@@ -394,25 +331,385 @@ investment_period ticker_sample_size  avg_tot_1M  sel_tot_1M  avg_tot_2M  sel_to
           ----/--                 --       8.57%      20.71%      -5.42%      18.14%     -10.09%      14.93%
 ```
 
-Each line reports the returns for each montly portfolio selection at a 1 month, 2 month and 3 month horizon.
+Each line reports the returns for each monthly portfolio selection at a 1 month, 2 month and 3 month horizon.
+
+## MACD Crossover Strategy
+This is a momentum based strategy that will determine which securities in the ticker list are in a bullish pattern. Bullish stocks are included in the recommendation and indicate a buy signal, while bearish stocks are excluded, and indicate a sell.
+
+Momentum is measured by looking at the MACD oscillator, where bullish stocks are identified when the MACD is negative and the histogram is approaching 0 and remains so until the MACD is positive, but the histogram has dipped significantly in negative territory. The latter is measured by dividing the histogram by the price and comparing it to a threshold supplied to the strategy.
+
+### Algorithm
+1) For each security in the ticker list download Current Price and MACD Data.
+2) Measure whether the divergence is significant:
+```
+    s = abs(histogram / price) > threshdold
+```
+3) Check for the following:
+```
+    if macd > 0 and histogram > 0
+        "Bullish"
+    if macd > 0 and histogram < 0 and not significant_divergence
+        "Bullish"
+    elif macd < 0 and histogram > 0:
+        "Bullish"
+    elif macd < 0 and histogram < 0 and not significant_divergence
+        "Bullish"
+    else:
+        "Bearish"
+```
+
+### Limitations
+1) MACD is inherently prone to false signals, and so it's necessary to use proper stop-loss techniques.
+2) It does not look at historical MACD data. Some false signals may be avoided, by additionally checking to see if a crossover happened in recent days.
+
+### Output
+The following is the output that is displayed when the ```display_results()``` method is called.
+
+```
+[INFO] - Displaying results of MACD strategy
+[INFO] - Analysis Date: 2020-06-16
+[INFO] - Divergence Tolerance Factor: 0.001600, MACD Parameters: (12, 16, 9)
+ticker_symbol   price      macd    signal  divergence momentum
+         AAPL  352.08  3.710432  3.366972    0.343460  BULLISH
+         MSFT  193.57  0.969473  0.866148    0.103325  BULLISH
+           BA  197.77  5.482737  5.458804    0.023933  BULLISH
+           PG  118.13  0.218617  0.219952   -0.001335  BULLISH
+           VZ   56.92  0.106353  0.120561   -0.014208  BULLISH
+          WMT  119.65 -0.539573 -0.380202   -0.159371  BULLISH
+          JNJ  144.46 -0.466416 -0.274207   -0.192209  BULLISH
+           GE    7.47  0.084639  0.102468   -0.017829  BEARISH
+           KO   46.77  0.072709  0.175848   -0.103138  BEARISH
+         CSCO   46.48  0.138880  0.277016   -0.138136  BEARISH
+          PFE   33.40 -0.367701 -0.216830   -0.150870  BEARISH
+          XOM   48.20  0.309542  0.490389   -0.180847  BEARISH
+         INTC   60.40 -0.036870  0.171304   -0.208174  BEARISH
+          AXP  105.62  1.334676  1.577946   -0.243269  BEARISH
+          CAT  130.11  1.182547  1.448385   -0.265838  BEARISH
+          MRK   76.97 -0.213090  0.066644   -0.279734  BEARISH
+          TRV  116.15  1.489799  1.778918   -0.289119  BEARISH
+          JPM  102.06  0.809837  1.145537   -0.335700  BEARISH
+          CVX   94.03  0.170683  0.507907   -0.337224  BEARISH
+          MCD  190.32  0.746826  1.104950   -0.358124  BEARISH
+          IBM  125.15  0.138236  0.500536   -0.362300  BEARISH
+          MMM  159.67  0.857487  1.221862   -0.364375  BEARISH
+          NKE   99.04  0.529814  0.901687   -0.371873  BEARISH
+            V  192.88  0.631840  1.210006   -0.578166  BEARISH
+           GS  209.59  1.944449  2.525884   -0.581435  BEARISH
+           HD  249.95  0.985881  1.803351   -0.817470  BEARISH
+          UNH  293.00 -0.234440  0.906327   -1.140766  BEARISH
+[INFO] - {
+    "set_id": "855b32a4-c04b-11ea-bb40-acbc329ef75f",
+    "creation_date": "2020-07-07T12:15:18.064718+00:00",
+    "valid_from": "2020-06-16",
+    "valid_to": "2020-06-16",
+    "price_date": "2020-06-16",
+    "strategy_name": "MACD_CROSSOVER",
+    "security_type": "US_EQUITIES",
+    "securities_set": [
+        {
+            "ticker_symbol": "AAPL",
+            "price": 352.08
+        },
+        {
+            "ticker_symbol": "BA",
+            "price": 197.77
+        },
+        {
+            "ticker_symbol": "JNJ",
+            "price": 144.46
+        },
+        {
+            "ticker_symbol": "MSFT",
+            "price": 193.57
+        },
+        {
+            "ticker_symbol": "PG",
+            "price": 118.13
+        },
+        {
+            "ticker_symbol": "VZ",
+            "price": 56.92
+        },
+        {
+            "ticker_symbol": "WMT",
+            "price": 119.65
+        }
+    ]
+}
+```
+
+### Examples
+The following shows a simulation of this strategy applied to ```AAPL``` from Jan 2019 to July 2020. During that time, Apple's price grew by approximately 150% whereas this this strategy would have netted 175% profit.
+
+The green arrows show profitable trades, while the red circles show false
+signals that were caught by using stop loss.
+
+![Apple MACD 2019-2020](doc/macd-appl-2019-2020.png)
+
+The trades and summary table that follow are generated using the MACD backtest program described in the next section.
+
+```
+Ticker  Compounded PNL (%)  Average Trade PNL (%)  False Signals (%)
+  AAPL              175.46                  10.07              18.18
+
+ticker    buy_date  buy_price   sell_date sell_price  trade_pnl_factor  10k_growth
+  AAPL  2019-01-03     142.19  2019-03-08     172.91              0.22    12160.49
+  AAPL  2019-03-12     180.91  2019-05-01     210.52              0.16    14150.83
+  AAPL  2019-05-02     209.15  2019-05-08  STOP_LOSS             -0.02    13867.81
+  AAPL  2019-06-06     185.22  2019-08-05     193.34              0.04    14475.77
+  AAPL  2019-08-19     210.35  2019-09-30     223.97              0.06    15413.07
+  AAPL  2019-10-01     224.59  2019-10-04     227.01              0.01    15579.15
+  AAPL  2019-10-07     227.06  2019-11-22     261.78              0.15    17961.37
+  AAPL  2019-12-13     275.15  2020-01-28     317.69              0.15    20738.32
+  AAPL  2020-01-31     309.51  2020-02-03     308.66             -0.00    20681.36
+  AAPL  2020-03-27     247.74  2020-06-01     321.85              0.30    26868.08
+  AAPL  2020-06-02     323.34  2020-06-05     331.50              0.03    27546.13
+```
+
+
+There is evidence to suggest that this strategy can also turn a profit on declining stocks. For example consider ```GE``` for the same time period. Holding the stock would have resulted in a loss of 10%, while this strategy would have netted a profit of 89%
+
+![GE MACD 2019-2020](doc/macd-ge-2019-2020.png)
+
+```
+Ticker  Compounded PNL (%)  Average Trade PNL (%)  False Signals (%)
+    GE               88.61                   5.49              53.85
+
+ticker    buy_date  buy_price   sell_date sell_price  trade_pnl_factor  10k_growth
+    GE  2019-01-03       8.06  2019-02-19      10.13              0.26    12568.24
+    GE  2019-02-26      10.66  2019-03-04  STOP_LOSS             -0.02    12316.87
+    GE  2019-03-21      10.27  2019-03-26      10.10             -0.02    12112.99
+    GE  2019-04-03      10.10  2019-04-09  STOP_LOSS             -0.02    11870.73
+    GE  2019-04-25       9.12  2019-05-21       9.96              0.09    12964.09
+    GE  2019-06-06       9.92  2019-07-10      10.20              0.03    13330.01
+    GE  2019-07-24      10.68  2019-08-05  STOP_LOSS             -0.02    13063.41
+    GE  2019-09-03       8.33  2019-10-02       8.51              0.02    13345.69
+    GE  2019-10-16       8.90  2019-11-26      11.35              0.28    17019.51
+    GE  2020-01-03      11.97  2020-01-22  STOP_LOSS             -0.02    16679.12
+    GE  2020-01-30      12.73  2020-02-20      12.53             -0.02    16417.07
+    GE  2020-03-27       7.62  2020-05-18  STOP_LOSS             -0.02    16088.73
+    GE  2020-05-19       6.21  2020-06-18       7.28              0.17    18860.86
+
+```
+
+### MACD Crossover Backtest
+It is possible to backtest the MACD Crossover strategy using a special backtest implemented using the ```macd_crossover_backtest.py```
+
+```
+>>python macd_crossover_backtest.py -h
+usage: macd_crossover_backtest.py [-h] -ticker_list TICKER_LIST -start_date
+                                  START_DATE -end_date END_DATE
+                                  -stop_loss_theshold STOP_LOSS_THESHOLD
+
+Executes a backtest for the MACD_CROSSOVER strategy given a ticker list, start
+date, end date and threshold, e.g. -0.02, used to determine the maximum
+allowed loss of a trade before a stop loss takes effect.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -ticker_list TICKER_LIST
+                        Ticker List File
+  -start_date START_DATE
+                        Backtest start date (YYY/MM/DD)
+  -end_date END_DATE    Backtest end date (YYYY/MM/DD)
+  -stop_loss_theshold STOP_LOSS_THESHOLD
+                        Stop Loss Threshold factor, e.g. -0.02 (-2%)
+```
+
+where ```-start_date``` and ```-end_date``` are the backtest study range, and ```-stop_loss_theshold``` simulates a stop loss system that would limit losses originating from false signals.
+
+For example:
+
+```
+>>python macd_crossover_backtest.py -ticker_list djia30.json -start_date 2019/01/01 -end_date 2020/07/01 -stop_loss_theshold -0.02
+```
+
+Would backtest the entire DOW30 from Jan 2019 to July 2020, and display two tables. The first, a summary displaying things like cumulative returns and false signal rate (one that results in a losing trade) for all securities listed in the ticker file. The second table gives a breakdown of all simulated trades that occurred in that timeframe.
+
+```
+[INFO] - Parameters:
+[INFO] - Ticker File: djia30.json
+[INFO] - Start Date: 2019-01-01 00:00:00
+[INFO] - End Date: 2020-07-01 00:00:00
+[INFO] - Stop Loss Threshold: -0.02
+[INFO] - 
+[INFO] - MACD Configuration:
+[INFO] - Divergence Tolerance Factor: 0.001600
+[INFO] - Slow Period: 26
+[INFO] - Fast Period: 12
+[INFO] - Signal Period: 9
+[INFO] - 
+processing: 2020-06-30
+Ticker  Compounded PNL (%)  Average Trade PNL (%)  False Signals (%)
+  AAPL              175.46                  10.07              18.18
+    GE               88.61                   5.49              53.85
+  MSFT               80.68                   6.44              20.00
+    HD               79.43                   7.05              33.33
+  INTC               78.84                   4.08              33.33
+    GS               78.59                   5.56              18.18
+     V               73.22                   7.54              37.50
+   CAT               68.59                   4.28              30.77
+    BA               56.59                   5.21              60.00
+  CSCO               52.45                   4.17              36.36
+   IBM               50.60                   4.03              45.45
+   NKE               48.57                   3.02              42.86
+   UNH               47.63                   3.13              50.00
+   MMM               43.66                   2.92              38.46
+   CVX               42.91                   3.71              54.55
+   AXP               41.28                   2.31              50.00
+   JPM               40.19                   2.74              38.46
+   MCD               34.50                   3.13              50.00
+   TRV               33.22                   2.60              41.67
+   PFE               25.81                   2.34              54.55
+   JNJ               24.91                   2.16              45.45
+   XOM               23.74                   1.53              53.33
+   WMT               15.93                   1.13              50.00
+    KO               13.57                   0.84              56.25
+    PG                9.53                   0.49              50.00
+    VZ                1.51                   0.13              58.82
+   MRK               -1.14                  -0.06              61.54
+ticker    buy_date  buy_price   sell_date sell_price  trade_pnl_factor  10k_growth
+  AAPL  2019-01-03     142.19  2019-03-08     172.91              0.22    12160.49
+  AAPL  2019-03-12     180.91  2019-05-01     210.52              0.16    14150.83
+  AAPL  2019-05-02     209.15  2019-05-08  STOP_LOSS             -0.02    13867.81
+  AAPL  2019-06-06     185.22  2019-08-05     193.34              0.04    14475.77
+  AAPL  2019-08-19     210.35  2019-09-30     223.97              0.06    15413.07
+  AAPL  2019-10-01     224.59  2019-10-04     227.01              0.01    15579.15
+  AAPL  2019-10-07     227.06  2019-11-22     261.78              0.15    17961.37
+  AAPL  2019-12-13     275.15  2020-01-28     317.69              0.15    20738.32
+  AAPL  2020-01-31     309.51  2020-02-03     308.66             -0.00    20681.36
+  AAPL  2020-03-27     247.74  2020-06-01     321.85              0.30    26868.08
+  AAPL  2020-06-02     323.34  2020-06-05     331.50              0.03    27546.13
+   AXP  2019-01-07      98.17  2019-03-25     109.04              0.11    11107.26
+   AXP  2019-04-16     111.88  2019-05-15     117.66              0.05    11681.09
+   AXP  2019-05-17     119.07  2019-05-29     117.01             -0.02    11479.00
+   AXP  2019-06-10     122.66  2019-07-22     126.00              0.03    11791.57
+   AXP  2019-07-24     127.95  2019-07-29     127.19             -0.01    11721.53
+   AXP  2019-08-14     122.65  2019-08-15     122.38             -0.00    11695.73
+   AXP  2019-08-20     121.42  2019-08-21     122.50              0.01    11799.76
+   AXP  2019-09-06     120.19  2019-10-03  STOP_LOSS             -0.02    11563.76
+   AXP  2019-10-11     116.40  2019-11-25     120.60              0.04    11981.01
+   AXP  2019-11-26     119.79  2019-12-03  STOP_LOSS             -0.02    11741.39
+   AXP  2019-12-09     120.46  2020-01-08     125.54              0.04    12236.55
+   AXP  2020-01-09     127.81  2020-02-04     131.85              0.03    12623.34
+   AXP  2020-02-06     133.25  2020-02-11     132.63             -0.00    12564.60
+   AXP  2020-02-13     134.46  2020-02-25  STOP_LOSS             -0.02    12313.31
+   AXP  2020-03-27      88.73  2020-05-14  STOP_LOSS             -0.02    12067.04
+   AXP  2020-05-19      87.26  2020-06-18     102.16              0.17    14127.54
+
+...
+
+   XOM  2019-01-07      71.52  2019-03-26      80.96              0.13    11319.91
+   XOM  2019-04-03      80.90  2019-04-04      82.05              0.01    11480.82
+   XOM  2019-04-05      82.49  2019-04-15  STOP_LOSS             -0.02    11251.21
+   XOM  2019-04-23      83.38  2019-04-29  STOP_LOSS             -0.02    11026.18
+   XOM  2019-05-22      75.56  2019-05-24      74.10             -0.02    10813.13
+   XOM  2019-06-06      74.31  2019-07-19      74.99              0.01    10912.08
+   XOM  2019-07-31      74.36  2019-08-01  STOP_LOSS             -0.02    10693.84
+   XOM  2019-08-22      69.57  2019-10-01      68.95             -0.01    10598.54
+   XOM  2019-10-15      69.42  2019-11-15      69.19             -0.00    10563.42
+   XOM  2019-11-25      68.91  2019-12-02      68.42             -0.01    10488.31
+   XOM  2019-12-03      67.88  2019-12-04      68.65              0.01    10607.28
+   XOM  2019-12-05      68.41  2020-01-15      69.09              0.01    10712.72
+   XOM  2020-02-18      59.88  2020-02-25  STOP_LOSS             -0.02    10498.47
+   XOM  2020-03-26      38.82  2020-05-14      42.30              0.09    11439.60
+   XOM  2020-05-21      44.56  2020-06-16      48.20              0.08    12374.07
+```
+
+# Securities Recommendation Service
+![Security Recommendation Service Design](doc/recommendation-service.png)
+
+The Securities Recommendation service is a component of the Stock Advisor system that executes the strategies described above and ensures they are current. These are then used by the portfolio manager in order to maintain an active portfolio.
+
+## Running the service from the command line
+The easiest way to run this service is via the command line. This section describes how.
+
+```
+src >>python securities_recommendation_svc.py -h
+[INFO] - Parsing command line parameters
+usage: securities_recommendation_svc.py [-h] -app_namespace APP_NAMESPACE
+
+Executes all available strategies and creates stock recommendations for each.
+Recommendations are represented as JSON documents and are stored using S3. The
+command line input is an application namespace used to identify the AWS
+resources required by the service, namely the S3 bucket used to store the
+application inputs consisting of ticker lists and configuration, and the
+outputs consisting of recommendation objects.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -app_namespace APP_NAMESPACE
+                        Application namespace used to identify AWS resources
+```
+
+Where ```-app_namespace``` is used to identify the AWS resources required by the service, namely the name of the S3 bucket used to read inputs and store outputs. Internally this namespace is used to look up the CloudFormation exports exposed by AWS infrastructure that hosts this system. For more information, please refer to the main project which includes the infrastructure automation.
+
+For example:
+
+```
+python securities_recommendation_svc.py -app_namespace sa
+```
+
+### Recommendation Service Output
+The main output of this service is a set of recommendations which are stored in S3. As mentioned earlier in the document, recommendations are created only when none exist or when the current ones are expired. When all recommendations are current, the service will do nothing. Here is an example:
+
+```
+[INFO] - Uploading Security Recommendation Set to S3: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/macd-crossover-recommendation-set.json
+(venv) ~/development/git-projects/stock-advisor/src >>./run_rec_svc.sh
+[INFO] - Parsing command line parameters
+[INFO] - Parameters:
+[INFO] - Application Namespace: sa
+[INFO] - Business Date is: 2020-06-22
+[INFO] - Testing AWS connectivity
+[INFO] - AWS connectivity test successful
+[INFO] - Testing Intrinio connectivity
+[INFO] - Intrinio connectivity test successful
+[INFO] - Loading Strategy Configuration "strategies.ini" from S3
+[INFO] - Downloading Configuration File: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/configuration/strategies.ini --> ./config/strategies.ini.s3download
+[INFO] - Initalizing Trading Strategies
+[INFO] - Downloading TickerList: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/ticker-files/djia30.json --> ./app_data//djia30.json
+[INFO] - Downloading TickerList: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/ticker-files/djia30.json --> ./app_data//djia30.json
+[INFO] - Executing PRICE_DISPERSION strategy
+[INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/price-dispersion-recommendation-set.json --> ./app_data//price-dispersion-recommendation-set.json
+[INFO] - Recommendation set is still valid. There is nothing to do
+[INFO] - Executing MACD_CROSSOVER strategy
+[INFO] - Downloading Security Recommendation Set: s3://app-infra-base-sadatabucketcc1b0cfa-19um03obhhhy4/base-recommendations/macd-crossover-recommendation-set.json --> ./app_data//macd-crossover-recommendation-set.json
+[INFO] - Recommendation set is still valid. There is nothing to do
+```
+
+When a new portfolio is generated and an SNS event will be published resulting in the below email/sms notification.
+
+```
+From: sa-app-notification-topic (no-reply@sns.amazonaws.com)
+To: Me
+
+A New Stock Recommendation is available for the month of April
+
+
+Ticker Symbol: BA
+Ticker Symbol: GE
+Ticker Symbol: XOM
+```
+
+## Caching of financial data
+All financial data is saved to a local cache to reduce throttling and API limits when using the Intrinio API. As of this version the data is set to never expire, and the cache will grow to a maximum size of 4GB.
+
+The cache is located in the following path:
+
+```
+./financial-data/
+./financial-data/cache.db
+```
+
+To delete or reset the contents of the cache, simply delete entire ```./financial-data/``` folder
 
 # Portfolio Manager
 ![Portfolio Manager Design](doc/portfolio-manager.png)
 
-The Portfolio Manager service is a component of the Stock Advisor system that actively manages a protfolio based on the output of the recommendation service. The service is designed to run daily, and typically takes a few seconds to execute. When running in ECS, the service is scheduled to run daily at 11am EST, and will maintain a stock portfolio on the supplied TDAmeritrade account.
+The Portfolio Manager service is a component of the Stock Advisor system that actively manages a portfolio based on the output of the recommendation service. The service is designed to run daily, and typically takes a few seconds to execute. When running in ECS, the service is scheduled to run daily at 11am EST, and will maintain a stock portfolio on the supplied TDAmeritrade account.
 
-## Portfolio Manager Release Notes
-This is an initial version that offers the following features:
-
-* Create new portfolio based on latest recommendation, or update an existing one stored in S3.
-* Execute trades necessary to materialize the portfolio.
-* Ability to run inside a Docker container
-* Integrate into Stock Advisor Infrastructure, specifically ECS.
-* Send SNS Notifications with summary of returns and any trading activity
-
-
-## Trading Strategy
-The current strategy is to buy and hold a portfolio based on the most recent recommendations. When a new recommendation set is created, the portfolio will be rebalaned accordingly. Specifically, each time service is run, it will do the following:
+## Portfolio Management Strategy
+The current strategy is to buy and hold a portfolio based on the most recent recommendations. When a new recommendation set is created, the portfolio will be balanced accordingly. Specifically, each time service is run, it will do the following:
 
 1) Read the latest recommendations and portfolio objects from S3.
 2) Reprice the portfolio and update it based on the contents of the recommendations. If the portfolio recommendations have changed then create a new portfolio, otherwise keep the existing one.
@@ -473,7 +770,7 @@ The main output of the service is an updated portfolio, stored in S3. Here is an
     "portfolio_id": "3a53394e-93e8-11ea-b6ab-8217042f1400",
     "set_id": "52821fda-90dc-11ea-b5d1-acbc329ef75f",
     "creation_date": "2020-05-12T00:33:40.845042+00:00",
-    "price_date": "2020-05-08T04:00:00+00:00",
+    "price_date": "2020-05-08",
     "securities_set": [],
     "current_portfolio": {
         "securities": [
@@ -564,9 +861,7 @@ exception.exceptions.ValidationError: Validation Error: Current recommendation s
 ```
 
 # Running the Services
-The previous sections describe how to run the application locally. It's possible to run the recommendation sytem and back test without any dependencies to AWS.
-The portfolio manager can also be run locally, but does have dependencies to AWS, though a future version of it won't require it.
-
+The previous sections describe how to run the services locally.
 This section describes how to run the services either locally using Docker, or using ECS. The latter, specifically AWS Fargate, is the intended runtime platform for these services.
 
 
@@ -614,11 +909,11 @@ Once built, the container is executed in a similar way as the script. Note how t
 For example:
 
 ```
-docker run -e INTRINIO_API_KEY=xxx image-id -ticker_file djia30.txt -output_size 3 production -app_namespace sa
+docker run -e INTRINIO_API_KEY=xxx image-id -app_namespace sa
 ```
 
 ## Running the service in ECS
-This service is intended to be run in ECS using a Fargate task. The automation contained in the main project will create the ECS Cluster, Task Definitions, Scheduled Tasks, Container Repositories and CodeBuild project needed to build and deploy the service to AWS. Please refer to the main project for instructons on how to leverage automation to build and deploy the system.
+This service is intended to be run in ECS using a Fargate task. The automation contained in the main project will create the ECS Cluster, Task Definitions, Scheduled Tasks, Container Repositories and CodeBuild project needed to build and deploy the service to AWS. Please refer to the main project for instructions on how to leverage automation to build and deploy the system.
 
 Both the Recommendation Service and Portfolio manager are configured to run as scheduled tasks, and run daily
 
@@ -647,31 +942,35 @@ This command will execute all unit tests and run the coverage report (using cove
 
 ```
 src >>./test.sh
-............................................................................................................................................................
+...............................................................................................................................................................................................
 ----------------------------------------------------------------------
-Ran 156 tests in 0.288s
+Ran 191 tests in 4.213s
 
 OK
 Name                                      Stmts   Miss  Cover
 -------------------------------------------------------------
-connectors/aws_service_wrapper.py            76      7    91%
+connectors/aws_service_wrapper.py            75      8    89%
 connectors/connector_test.py                 31      3    90%
-connectors/intrinio_data.py                 152     42    72%
-connectors/intrinio_util.py                  27      0   100%
+connectors/intrinio_data.py                 219     56    74%
+connectors/intrinio_util.py                  31      0   100%
 connectors/td_ameritrade.py                 146     20    86%
 exception/exceptions.py                      40      1    98%
-model/base_model.py                          59     10    83%
-model/portfolio.py                           78      2    97%
-model/recommendation_set.py                  33      0   100%
-model/ticker_file.py                         44     10    77%
-services/broker.py                          140     10    93%
-services/portfolio_mgr_svc.py                73      1    99%
-services/recommendation_svc.py               43      3    93%
+model/base_model.py                          56      5    91%
+model/portfolio.py                           77      2    97%
+model/recommendation_set.py                  30      0   100%
+model/ticker_list.py                         33      0   100%
+services/broker.py                          142     10    93%
+services/portfolio_mgr_svc.py                74      1    99%
+services/recommendation_svc.py               21      0   100%
+strategies/base_strategy.py                  19      3    84%
 strategies/calculator.py                     19      0   100%
-strategies/price_dispersion_strategy.py      72     31    57%
-support/constants.py                         14      0   100%
+strategies/macd_crossover_strategy.py        89      8    91%
+strategies/price_dispersion_strategy.py     108     26    76%
+support/configuration.py                     47      3    94%
+support/constants.py                         24      0   100%
 support/financial_cache.py                   33      2    94%
-support/util.py                              29      1    97%
+support/util.py                              46      2    96%
 -------------------------------------------------------------
-TOTAL                                      1109    143    87%
+TOTAL                                      1360    150    89%
+
 ```

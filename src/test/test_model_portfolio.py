@@ -22,7 +22,7 @@ class TestPortfolio(unittest.TestCase):
             "portfolio_id": "xxx",
             "set_id": "yyy",
             "creation_date": "2020-04-14T12:20:50.219487+00:00",
-            "price_date": "2020-03-31T04:00:00+00:00",
+            "price_date": "2020-03-31",
             "current_portfolio": {
                 "securities": [{
                     "ticker_symbol": "AAPL",
@@ -50,7 +50,7 @@ class TestPortfolio(unittest.TestCase):
             "portfolio_id": "xxx",
             "set_id": "yyy",
             "creation_date": "2020-04-14T12:20:50.219487+00:00",
-            "price_date": "2020-03-31T04:00:00+00:00",
+            "price_date": "2020-03-31",
             "current_portfolio": {
                 "securities": [{
                     "ticker_symbol": "AAPL",
@@ -99,7 +99,7 @@ class TestPortfolio(unittest.TestCase):
     def test_invalid_object_missing_properties(self):
         portfolio_dict = {
             "creation_date": "2020-04-14T12:20:50.219487+00:00",
-            "price_date": "2020-03-31T04:00:00+00:00",
+            "price_date": "2020-03-31",
             "current_portfolio": [{
                 "ticker_symbol": "AAPL",
                 "quantity": 1000,
@@ -128,9 +128,9 @@ class TestPortfolio(unittest.TestCase):
     sr_dict = {
         "set_id": "1430b59a-5b79-11ea-8e96-acbc329ef75f",
         "creation_date": "2020-09-01T04:56:57.612693+00:00",
-        "valid_from": "2019-08-01T04:00:00+00:00",
-        "valid_to": "2019-08-31T04:00:00+00:00",
-        "price_date": "2019-09-01T02:34:12.876012+00:00",
+        "valid_from": "2019-08-01",
+        "valid_to": "2019-09-01",
+        "price_date": "2019-08-31",
         "strategy_name": "PRICE_DISPERSION",
         "security_type": "US Equities",
         "securities_set": [{
@@ -155,7 +155,7 @@ class TestPortfolio(unittest.TestCase):
                 self.sr_dict)
 
             with self.assertRaises(DataError):
-                portfolio = Portfolio()
+                portfolio = Portfolio(None)
                 portfolio.create_empty_portfolio(recommendation_set)
 
     def test_create_empty_portfolio_invalid_intrinio_response(self):
@@ -166,7 +166,7 @@ class TestPortfolio(unittest.TestCase):
                 self.sr_dict)
 
             with self.assertRaises(ValidationError):
-                portfolio = Portfolio()
+                portfolio = Portfolio(None)
                 portfolio.create_empty_portfolio(recommendation_set)
 
     def test_create_empty_portfolio_valid(self):
@@ -176,7 +176,7 @@ class TestPortfolio(unittest.TestCase):
             recommendation_set = SecurityRecommendationSet.from_dict(
                 self.sr_dict)
 
-            portfolio = Portfolio()
+            portfolio = Portfolio(None)
             portfolio.create_empty_portfolio(recommendation_set)
 
     def test_portfolio_empty(self):
@@ -186,7 +186,7 @@ class TestPortfolio(unittest.TestCase):
             recommendation_set = SecurityRecommendationSet.from_dict(
                 self.sr_dict)
 
-            portfolio = Portfolio()
+            portfolio = Portfolio(None)
             portfolio.create_empty_portfolio(recommendation_set)
 
             self.assertTrue(portfolio.is_empty())
@@ -198,7 +198,7 @@ class TestPortfolio(unittest.TestCase):
             recommendation_set = SecurityRecommendationSet.from_dict(
                 self.sr_dict)
 
-            portfolio = Portfolio()
+            portfolio = Portfolio(None)
             portfolio.create_empty_portfolio(recommendation_set)
 
             portfolio.model['current_portfolio'] = {
@@ -219,7 +219,7 @@ class TestPortfolio(unittest.TestCase):
             "portfolio_id": "xxx",
             "set_id": "yyy",
             "creation_date": "2020-04-14T12:20:50.219487+00:00",
-            "price_date": "2020-03-31T04:00:00+00:00",
+            "price_date": "2020-03-31",
             "current_portfolio": {
                 "securities": [{
                     "ticker_symbol": "INTC",
@@ -259,15 +259,14 @@ class TestPortfolio(unittest.TestCase):
             self.assertEqual(round(portfolio.model["securities_set"][
                              0]["current_returns"], 2), 0.01)
 
-            self.assertEqual(portfolio.model["price_date"], util.date_to_iso_utc_string(
-                parser.parse('2020-04-30')))
+            self.assertEqual(portfolio.model["price_date"], '2020-04-30')
 
     def test_reprice_unfilled_order(self):
         portfolio_dict = {
             "portfolio_id": "xxx",
             "set_id": "yyy",
             "creation_date": "2020-04-14T12:20:50.219487+00:00",
-            "price_date": "2020-03-31T04:00:00+00:00",
+            "price_date": "2020-03-31",
             "current_portfolio": {
                 "securities": [{
                     "ticker_symbol": "INTC",
@@ -307,15 +306,14 @@ class TestPortfolio(unittest.TestCase):
             self.assertEqual(round(portfolio.model["securities_set"][
                              0]["current_returns"], 2), 0)
 
-            self.assertEqual(portfolio.model["price_date"], util.date_to_iso_utc_string(
-                parser.parse('2020-04-30')))
+            self.assertEqual(portfolio.model["price_date"], '2020-04-30')
 
     def test_get_position(self):
         portfolio_dict = {
             "portfolio_id": "xxx",
             "set_id": "yyy",
             "creation_date": "2020-04-14T12:20:50.219487+00:00",
-            "price_date": "2020-03-31T04:00:00+00:00",
+            "price_date": "2020-03-31",
             "current_portfolio": {
                 "securities": [{
                     "ticker_symbol": "INTC",

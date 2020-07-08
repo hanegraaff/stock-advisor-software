@@ -21,7 +21,7 @@ class TestBroker(unittest.TestCase):
         "portfolio_id": "2485a5e6-8e18-11ea-ab08-0e8077acf87d",
         "set_id": "8937aa02-8c29-11ea-92af-0a98cddf4637",
         "creation_date": "2020-05-04T15:01:33.131964+00:00",
-        "price_date": "2020-05-05T00:00:00+00:00",
+        "price_date": "2020-05-05",
         "securities_set": [],
         "current_portfolio": {
             "securities": [

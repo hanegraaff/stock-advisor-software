@@ -1,0 +1,8 @@
+{
+	"list_name": "DOW30",
+	"list_type": "US_EQUITIES",
+	"ticker_symbols":[
+		"AAPL",
+		"GE"
+	]
+}
