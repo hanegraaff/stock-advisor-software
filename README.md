@@ -493,7 +493,7 @@ ticker    buy_date  buy_price   sell_date sell_price  trade_pnl_factor  10k_grow
 ```
 
 ### MACD Crossover Backtest
-It is possible to backtest the MACD Crossover strategy using a special backtest implemented using the ```macd_crossover_backtest.py```
+It is possible to backtest the MACD Crossover strategy using a special backtest implemented by the ```macd_crossover_backtest.py``` script.
 
 ```
 >>python macd_crossover_backtest.py -h
