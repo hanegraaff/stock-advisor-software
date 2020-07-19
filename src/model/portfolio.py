@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from copy import deepcopy
 import uuid
 import pytz
-import json
 import logging
 from exception.exceptions import ValidationError
 from model.base_model import BaseModel

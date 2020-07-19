@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from copy import deepcopy
 import uuid
 import pytz
-import json
+from jsonschema import RefResolver
+import model.shared_model_shema as sms
 import logging
 from exception.exceptions import ValidationError
 from model.base_model import BaseModel
@@ -29,6 +30,7 @@ class Positions(BaseModel):
             "positions_id", "positions_type", "creation_date", "last_updated", "positions"
         ],
         "properties": {
+            "test_field": { "$ref": "#/definitions/test" },
             "positions_id": {"type": "string"},
             "positions_type": {"type": "string"},
             "creation_date": {
@@ -56,7 +58,7 @@ class Positions(BaseModel):
                         },
                         "strategy_name": {"type": "string"},
                         "quantity": {"type": "number"},
-                        "pnl": {"type": "number"}
+                        "pnl": {"type": "number"},
                         "open":{
                             "type": "object",
                             "required": [
@@ -92,6 +94,8 @@ class Positions(BaseModel):
             }
         }
     }
+
+    ref_resolver = RefResolver.from_schema(sms.SHARED_MODEL_SCHEMA)
 
     model_s3_folder_prefix = constants.S3_POSITIONS_FOLDER_PREFIX
 

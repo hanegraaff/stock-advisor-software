@@ -24,6 +24,7 @@ class BaseModel(ABC):
 
     model_name = ""
     model = {}
+    ref_resolver = None
 
     @abstractmethod
     def __init__(self, model_dict: dict):
@@ -35,7 +36,7 @@ class BaseModel(ABC):
             Loads the model from a dictionary object
         '''
         try:
-            validate(model_dict, cls.schema,
+            validate(model_dict, cls.schema, resolver=cls.ref_resolver,
                      format_checker=jsonschema.FormatChecker())
         except Exception as e:
             raise ValidationError("Could not initialize from dictionary", e)
@@ -78,13 +79,14 @@ class BaseModel(ABC):
 
         return cls.from_local_file(dest_path)
 
+
     def validate_model(self):
         '''
             (Re)validates the model
         '''
         try:
             validate(self.model, self.schema,
-                     format_checker=jsonschema.FormatChecker())
+                     format_checker=jsonschema.FormatChecker(), resolver=self.ref_resolver)
         except Exception as e:
             raise ValidationError(
                 "Could not validate %s model" % self.model_name, e)

@@ -3,7 +3,6 @@
 from datetime import datetime, date, timedelta
 import uuid
 import pytz
-import json
 import dateutil.parser as parser
 from exception.exceptions import ValidationError
 from connectors import aws_service_wrapper
