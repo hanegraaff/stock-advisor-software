@@ -1,6 +1,7 @@
 """Author: Mark Hanegraaff -- 2020
 """
 from abc import ABC, abstractmethod
+from jsonschema import RefResolver
 import jsonschema
 import json
 from copy import deepcopy
@@ -8,6 +9,7 @@ import logging
 from datetime import datetime
 from jsonschema import validate
 from exception.exceptions import ValidationError
+import model.shared_model_shema as sms
 from connectors import aws_service_wrapper
 from support import constants, util
 
@@ -24,7 +26,7 @@ class BaseModel(ABC):
 
     model_name = ""
     model = {}
-    ref_resolver = None
+    ref_resolver = RefResolver.from_schema(sms.SHARED_MODEL_SCHEMA)
 
     @abstractmethod
     def __init__(self, model_dict: dict):

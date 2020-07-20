@@ -4,8 +4,6 @@ from datetime import datetime, timedelta
 from copy import deepcopy
 import uuid
 import pytz
-from jsonschema import RefResolver
-import model.shared_model_shema as sms
 import logging
 from exception.exceptions import ValidationError
 from model.base_model import BaseModel
@@ -16,20 +14,20 @@ from connectors import intrinio_data
 log = logging.getLogger()
 
 
-class Positions(BaseModel):
+class Portfolio(BaseModel):
     """
-        A data structure representing a set of positions.
-        Positions are created and maintained by the Portfolio Manager service.
+        A data structure representing a portfolio.
+        Portfolios are created and maintained by the Portfolio Manager service.
     """
 
     schema = {
         "type": "object",
         "required": [
-            "positions_id", "positions_type", "creation_date", "last_updated", "positions"
+            "portfolio_id", "portfolio_type", "creation_date", "last_updated", "open_positions"
         ],
         "properties": {
-            "positions_id": {"type": "string"},
-            "positions_type": {"type": "string"},
+            "portfolio_id": {"type": "string"},
+            "portfolio_type": {"type": "string"},
             "creation_date": {
                 "type": "string",
                 "format": "date-time"
@@ -46,9 +44,9 @@ class Positions(BaseModel):
         }
     }
 
-    model_s3_folder_prefix = constants.S3_POSITIONS_FOLDER_PREFIX
+    model_s3_folder_prefix = constants.S3_PORTFOLIO_FOLDER_PREFIX
 
-    model_name = "Positions"
+    model_name = "Portfolio"
 
     def __init__(self, model_dict: dict):
         super().__init__(model_dict)
