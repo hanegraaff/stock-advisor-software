@@ -9,23 +9,25 @@ SHARED_MODEL_SCHEMA = {
     "order":{
         "type": "object",
         "required": [
-            "price", "date", "order_id", "reason"
+            "price", "date", "order_id", "order_status", "reason"
         ],
         "properties": {
             "price": {"type": "number"},
             "date": {
-                "type": "string",
+                "type": ["string", "null"],
                 "format": "date-time"
             },
-            "order_id": {"type": "string"},
-            "reason": {"type": "string"},
-        }
+            "order_id": {"type": ["string", "null"]},
+            "order_status": {"type": ["string", "null"]},
+            "reason": {"type": "string"}
+        },
+        "additionalProperties": False
     },
     "position": {
         "type": "object",
         "required": [
             "ticker_symbol", "ls_indicator", "strategy_name",
-            "quantity", "pnl", "open"
+            "quantity", "pnl"
         ],
         "properties": {
             "ticker_symbol": {"type": "string"},
@@ -38,7 +40,8 @@ SHARED_MODEL_SCHEMA = {
             "pnl": {"type": "number"},
             "open":{ "$ref": "#/definitions/order"},
             "close":{ "$ref": "#/definitions/order"}
-        }
+        },
+        "additionalProperties": False
     }
   }
 }

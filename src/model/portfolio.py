@@ -95,7 +95,8 @@ class Portfolio(BaseModel):
                     }
                 }
             }
-        }
+        },
+        "additionalProperties": False
     }
 
     model_s3_folder_prefix = constants.S3_PORTFOLIO_FOLDER_PREFIX

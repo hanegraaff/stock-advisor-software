@@ -36,12 +36,13 @@ class Portfolio(BaseModel):
                 "type": "string",
                 "format": "date-time"
             },
-            "positions": {
+            "open_positions": {
                 "type": "array",
                 "minItems": 1,
                 "items": { "$ref": "#/definitions/position"},
             }
-        }
+        },
+        "additionalProperties": False
     }
 
     model_s3_folder_prefix = constants.S3_PORTFOLIO_FOLDER_PREFIX

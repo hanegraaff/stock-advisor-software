@@ -65,7 +65,8 @@ class SecurityRecommendationSet(BaseModel):
                     }
                 }
             }
-        }
+        },
+        "additionalProperties": False
     }
 
     model_s3_folder_prefix = constants.S3_RECOMMENDATION_SET_FOLDER_PREFIX

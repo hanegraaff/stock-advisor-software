@@ -15,6 +15,7 @@ from model.portfolio import Portfolio
 from exception.exceptions import AWSError
 from services import portfolio_mgr_svc_new
 from services.broker import Broker
+from services.portfolio_manager import PortfolioManager
 from support import util
 
 log = logging.getLogger()
@@ -70,10 +71,19 @@ def main():
         (current_portfolio,
          recommendation_list) = portfolio_mgr_svc_new.get_service_inputs(app_ns)
 
-        '''log.info("Loaded recommendation set id: %s" %
-                 security_recommendation.model['set_id'])
+        log.info("Loaded %d recommendation sets" %
+                 len(recommendation_list))
+
+        portfolio_manager = PortfolioManager()
 
         if current_portfolio is None:
+            log.info("Creating new portfolio")
+            current_portfolio = portfolio_manager.create_new_portfolio(recommendation_list, portfolio_size)
+            current_portfolio.save_to_s3(app_ns, constants.S3_PORTFOLIO_OBJECT_NAME)
+        else:
+            log.info("Updating portfolio")
+
+        '''if current_portfolio is None:
             log.info("Creating new portfolio")
             current_portfolio = Portfolio(None)
             current_portfolio.create_empty_portfolio(security_recommendation)
