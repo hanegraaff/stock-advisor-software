@@ -9,12 +9,11 @@ import argparse
 import logging
 import traceback
 from datetime import datetime
-from model.recommendation_set import SecurityRecommendationSet
 from support import constants, util, logging_definition
 from connectors import connector_test, td_ameritrade, aws_service_wrapper
 from model.portfolio import Portfolio
 from exception.exceptions import AWSError
-from services import portfolio_mgr_svc
+from services import portfolio_mgr_svc_new
 from services.broker import Broker
 from support import util
 
@@ -57,8 +56,8 @@ def main():
         Main function of this script
     """
     try:
-        (app_ns, portfolio_size) = parse_params()
-        #(app_ns, portfolio_size) = ('sa', 3)
+        #(app_ns, portfolio_size) = parse_params()
+        (app_ns, portfolio_size) = ('sa', 3)
 
         log.info("Application Parameters")
         log.info("-app_namespace: %s" % app_ns)
@@ -69,9 +68,9 @@ def main():
         connector_test.test_all_connectivity()
 
         (current_portfolio,
-         security_recommendation) = portfolio_mgr_svc.get_service_inputs(app_ns)
+         recommendation_list) = portfolio_mgr_svc_new.get_service_inputs(app_ns)
 
-        log.info("Loaded recommendation set id: %s" %
+        '''log.info("Loaded recommendation set id: %s" %
                  security_recommendation.model['set_id'])
 
         if current_portfolio is None:
@@ -120,7 +119,7 @@ def main():
             app_ns, constants.S3_PORTFOLIO_OBJECT_NAME)
 
         portfolio_mgr_svc.publish_current_returns(
-            updated_portfolio, updated, app_ns)
+                updated_portfolio, updated, app_ns)'''
 
     except Exception as e:
         stack_trace = traceback.format_exc()

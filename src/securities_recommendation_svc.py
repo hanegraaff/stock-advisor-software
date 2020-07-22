@@ -67,7 +67,8 @@ def main():
         Main function for this script
     """
     try:
-        app_ns = parse_params()
+        #app_ns = parse_params()
+        app_ns = 'sa'
 
         log.info("Parameters:")
         log.info("Application Namespace: %s" % app_ns)
@@ -127,8 +128,8 @@ def main():
         log.error("Could run script, because: %s" % (str(e)))
         log.error(stack_trace)
 
-        # aws_service_wrapper.notify_error(e, "Securities Recommendation Service",
-        #                                    stack_trace, app_ns)
+        aws_service_wrapper.notify_error(e, "Securities Recommendation Service",
+                                            stack_trace, app_ns)
 
 if __name__ == "__main__":
     main()
