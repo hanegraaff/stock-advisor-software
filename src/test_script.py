@@ -16,6 +16,7 @@ from strategies.macd_crossover_strategy import MACDCrossoverStrategy
 from strategies.price_dispersion_strategy import PriceDispersionStrategy
 from model.ticker_list import TickerList
 from model.positions import Positions
+from model.pportfolio import Portfolio
 from support import constants
 from support.configuration import Configuration
 from exception.exceptions import ValidationError
@@ -76,6 +77,8 @@ def main():
         positions = Positions.from_dict(positions_dict)
 
         positions.validate_model()
+
+        Portfolio.create_new_portfolio(None)
 
 
     except Exception as e:

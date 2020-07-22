@@ -51,15 +51,6 @@ class Portfolio(BaseModel):
     def __init__(self, model_dict: dict):
         super().__init__(model_dict)
 
-
-    def reprice(self, price_date: datetime):
-        '''
-            Reads the current prices, computes the latest returns
-            and updates the portfolio object.
-        '''
-        pass
-
-
     def copy(self):
         '''
             returns a copy of the portfolio

@@ -54,10 +54,11 @@ class Positions(BaseModel):
         super().__init__(model_dict)
 
 
-    def reprice(self, price_date: datetime):
+    def add_position(self, position: dict):
         '''
-            Reads the current prices, computes the latest returns
-            and updates the portfolio object.
+            appends a new position to the list.
+            The position is a dictionary that must match this format
+            {"$ref": "#/definitions/position"}
         '''
         pass
 
