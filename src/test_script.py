@@ -79,7 +79,7 @@ def main():
 
         pman = PortfolioManager()
 
-        portfolio = pman.create_new_portfolio([macd_strategy.recommendation_set, pd_strategy.recommendation_set], 100)
+        portfolio = pman.create_new_portfolio([macd_strategy.recommendation_set, pd_strategy.recommendation_set], 3 )
 
         print(util.format_dict(portfolio.model))
         print(util.format_dict(pd_strategy.recommendation_set.model))

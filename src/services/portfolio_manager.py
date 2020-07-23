@@ -26,18 +26,26 @@ class PortfolioManager():
     def create_new_portfolio(self, recommendation_list: list, portfolio_size: int):
         '''
             Creates a new portfolio based on an existing set of recommendations.
-            Securities are selected by sorting the recommendations (by name) and selecting
+            Securities are selected by sorting the recommendations and selecting
             securities using a round robin. This is done to ensure the selection process
             is deterministic.
 
+            Parameters
+            ----------
+            recommendation_list: list
+                The list of SecurityRecommendationSets used to construct the portfolio
+            portfolio_size: int
+                The number of recommended securities to include in the portfolio
+            
             Returns
-            -------
+            ----------
             A new instance of a portfolio
         '''
 
         def more_recommendations():
             '''
-                returns true if there are any positions left in 'recommendation_dict'
+                returns true if there are any recommendations left. Useful when the
+                portfolio size exceeds the available recommendations
             '''
             for strategy_name in recommendation_dict.keys():
                 if len(recommendation_dict[strategy_name]) > 0:
@@ -72,7 +80,7 @@ class PortfolioManager():
             try:
                 next_recommendation = recommendation_dict[next_strategy].pop()['ticker_symbol']
                 remaining_items -= 1
-                
+
                 new_portfolio_dict['open_positions'].append({
                     "ticker_symbol": next_recommendation,
                     "ls_indicator": "LONG",
@@ -96,6 +104,10 @@ class PortfolioManager():
         '''
             Updates the contents of a portfolio based on a recommendation list
             and a stop loss object.
+
+            1) Remove securities from portfolio that are not in recommendation List
+            2) Create a candidate list made up recommendations - portfolio securities
+            3) Select random items from the candidate list and update portfolio
 
             Returns
             -------

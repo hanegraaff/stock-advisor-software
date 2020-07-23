@@ -67,8 +67,7 @@ def main():
         Main function for this script
     """
     try:
-        #app_ns = parse_params()
-        app_ns = 'sa'
+        app_ns = parse_params()
 
         log.info("Parameters:")
         log.info("Application Namespace: %s" % app_ns)
