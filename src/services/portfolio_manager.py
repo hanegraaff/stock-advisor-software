@@ -44,13 +44,18 @@ class PortfolioManager():
 
         def more_recommendations():
             '''
-                returns true if there are any recommendations left. Useful when the
+                returns True if there are any recommendations left. Useful when the
                 portfolio size exceeds the available recommendations
             '''
             for strategy_name in recommendation_dict.keys():
                 if len(recommendation_dict[strategy_name]) > 0:
                     return True
-
+            return False
+        
+        def contains_security(ticker_symbol: str):
+            for position in new_portfolio_dict['open_positions']:
+                if position['ticker_symbol'] == ticker_symbol:
+                    return True
             return False
 
         if portfolio_size <= 0:
@@ -70,7 +75,7 @@ class PortfolioManager():
         recommendation_dict = {}
 
         for rec in recommendation_list:
-            recommendation_dict[rec.model['strategy_name']] = deepcopy(rec.model['securities_set'])
+            recommendation_dict[rec.model['strategy_name']] = rec.get_security_list()
 
         strategies = itertools.cycle(sorted(recommendation_dict.keys()))
 
@@ -78,11 +83,15 @@ class PortfolioManager():
 
         for next_strategy in strategies:
             try:
-                next_recommendation = recommendation_dict[next_strategy].pop()['ticker_symbol']
+                next_security = recommendation_dict[next_strategy].pop()
+
+                if contains_security(next_security):
+                    continue
+
                 remaining_items -= 1
 
                 new_portfolio_dict['open_positions'].append({
-                    "ticker_symbol": next_recommendation,
+                    "ticker_symbol": next_security,
                     "ls_indicator": "LONG",
                     "strategy_name": next_strategy,
                     "quantity": 0,
@@ -113,7 +122,15 @@ class PortfolioManager():
             -------
             An updated portfolio instance
         '''
-        pass
+        potfolio_dict = deepcopy(portfolio.model)
+
+        all_recommended_securities = []
+        for recommendation_set in recommendation_list:
+            all_recommended_securities += recommendation_set.get_security_list()
+
+        print(all_recommended_securities)
+
+
 
 
     def reconcile_portfolio(self, portfolio: object):

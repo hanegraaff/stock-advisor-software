@@ -91,12 +91,6 @@ class SecurityRecommendationSet(BaseModel):
             }
         '''
 
-        '''if (strategy_name is None or strategy_name == "" or security_type is None or
-                security_type == "" or securities_set is None or len(securities_set) == 0):
-            raise ValidationError(
-                "Could not initialize Portfolio objects from parameters", None)
-        '''
-
         try:
             cls.model = {
                 "set_id": str(uuid.uuid1()),
@@ -131,3 +125,10 @@ class SecurityRecommendationSet(BaseModel):
             self.model['valid_to']).date()
 
         return valid_from <= comparison_date <= valid_to
+
+    
+    def get_security_list(self):
+        '''
+            returns a list of ticker symbols that are part of the recommendation
+        '''
+        return [security['ticker_symbol'] for security in self.model['securities_set']]

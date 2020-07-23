@@ -77,12 +77,13 @@ def main():
 
         positions.validate_model()'''
 
+        recommendation_list = [macd_strategy.recommendation_set, pd_strategy.recommendation_set]
+
         pman = PortfolioManager()
 
-        portfolio = pman.create_new_portfolio([macd_strategy.recommendation_set, pd_strategy.recommendation_set], 3 )
+        portfolio = pman.create_new_portfolio(recommendation_list, 3)
 
-        print(util.format_dict(portfolio.model))
-        print(util.format_dict(pd_strategy.recommendation_set.model))
+        pman.update_portfolio(portfolio, recommendation_list, None)
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))

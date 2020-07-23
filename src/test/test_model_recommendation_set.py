@@ -173,3 +173,22 @@ class TestSecurityRecommendationSet(unittest.TestCase):
 
         self.assertTrue(recommendation_set.is_current(
             date(2019, 8, 1)))
+
+
+    def test_get_security_list(self):
+        # Create a recommendation set from the past (2019/8)
+        recommendation_set = SecurityRecommendationSet.from_parameters(
+            datetime(2020, 3, 1, 4, 56, 57, tzinfo=timezone.utc),
+            date(2019, 8, 1),
+            date(2019, 8, 1),
+            date(2019, 8, 1),
+            "PRICE_DISPERSION",
+            "US Equities",
+            {
+                "GE": 123.45,
+                "INTC": 123.45,
+                "AAPL": 123.45
+            }
+        )
+
+        self.assertListEqual(recommendation_set.get_security_list(), ['GE', 'INTC', 'AAPL'])
