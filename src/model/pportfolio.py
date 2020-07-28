@@ -52,6 +52,22 @@ class Portfolio(BaseModel):
     def __init__(self, model_dict: dict):
         super().__init__(model_dict)
 
+    def get_position_securities(self):
+        '''
+            Returns all portfolio securities as a list
+        '''
+        return [open_position['ticker_symbol'] for open_position in self.model['open_positions']]
+
+    def get_position(self, ticker_symbol: str):
+        '''
+            Returns a position dictionary given a ticker symbol.
+            If the ticker symbol does not exist, retun None
+        '''
+        for position in self.model['open_positions']:
+            if position['ticker_symbol'] == ticker_symbol:
+                return position
+        return None  
+
     def copy(self):
         '''
             returns a copy of the portfolio

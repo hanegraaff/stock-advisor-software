@@ -3,6 +3,7 @@
 
 import logging
 import uuid
+import random
 from copy import deepcopy
 from datetime import datetime
 from connectors import td_ameritrade
@@ -87,9 +88,7 @@ class PortfolioManager():
 
                 if contains_security(next_security):
                     continue
-
                 remaining_items -= 1
-
                 new_portfolio_dict['open_positions'].append({
                     "ticker_symbol": next_security,
                     "ls_indicator": "LONG",
@@ -109,7 +108,7 @@ class PortfolioManager():
         return Portfolio.from_dict(new_portfolio_dict)
 
 
-    def update_portfolio(self, portfolio: object, recommendation_list: list, stop_loss: object):
+    def update_portfolio(self, portfolio: object, recommendation_list: list, stop_loss: object, desired_portfolio_size: int):
         '''
             Updates the contents of a portfolio based on a recommendation list
             and a stop loss object.
@@ -122,14 +121,77 @@ class PortfolioManager():
             -------
             An updated portfolio instance
         '''
-        potfolio_dict = deepcopy(portfolio.model)
+        def sell_non_recommended_positions():
+            '''
+                Mark any positions that are no longer recommended so that they
+                may be unwound by the Broker object
+            '''
+            for position in portfolio.model['open_positions']:
+                if (position['ticker_symbol'], position['strategy_name']) not in all_recommended_securities:
+                    sell_securities.append(position['ticker_symbol'])
 
+            for sell_security in sell_securities:
+                portfolio.get_position(sell_security)['pending_command'] = {
+                    "action": "UNWIND",
+                    "reason": "RECOMMENDATION"
+                }
+        
+        def generate_portfolio_candidates():
+            '''
+                Returns the candidates that can be added to the portfolio.
+                "All Recommended Securities - Portfolio securities"
+            '''
+            portfolio_candidates = deepcopy(all_recommended_securities)
+
+            for position in portfolio.model['open_positions']:
+                ptuple = (position['ticker_symbol'], position['strategy_name'])
+                if ptuple in portfolio_candidates:
+                    portfolio_candidates.remove(ptuple)
+            
+            return portfolio_candidates
+
+        def handle_remaining_positions(portfolio_candidates: list):
+            '''
+                Adds or removes positions from the portfolio to ensure that it is
+                of the desired state. When removing positions, remove those with
+                the lowest PNL
+            '''
+            remaining_positions = desired_portfolio_size - (len(portfolio.get_position_securities()) - len(sell_securities))
+            if remaining_positions > len(portfolio_candidates):
+                remaining_positions = len(portfolio_candidates)
+            
+            if remaining_positions == 0:
+                return
+            elif remaining_positions > 0:
+                for i in range(remaining_positions):
+
+                    random_security = random.choice(portfolio_candidates)
+
+                    portfolio.model['open_positions'].append({
+                        "ticker_symbol": random_security[0],
+                        "ls_indicator": "LONG",
+                        "strategy_name": random_security[1],
+                        "quantity": 0,
+                        "pnl": 0
+                    })
+
+                    portfolio_candidates.remove(random_security)
+            else:
+                pass
+        
+        
+        sell_securities = []
         all_recommended_securities = []
+            
         for recommendation_set in recommendation_list:
-            all_recommended_securities += recommendation_set.get_security_list()
+            all_recommended_securities += [(security, recommendation_set.model['strategy_name']) for security in recommendation_set.get_security_list()]
 
-        print(all_recommended_securities)
+        sell_non_recommended_positions()
 
+        portfolio_candidates = generate_portfolio_candidates()
+        handle_remaining_positions(portfolio_candidates)
+
+        portfolio.validate_model()
 
 
 

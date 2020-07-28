@@ -35,6 +35,16 @@ SHARED_MODEL_SCHEMA = {
                 "type": "string",
                 "enum": ["LONG", "SHORT"]
             },
+            "pending_command": {
+                "type": "object",
+                "required": [
+                    "action", "reason"
+                ],
+                "properties":{
+                    "action": {"type": "string"},
+                    "reason": {"type": "string"}
+                }
+            },
             "strategy_name": {"type": "string"},
             "quantity": {"type": "number"},
             "pnl": {"type": "number"},

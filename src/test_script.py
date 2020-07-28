@@ -40,15 +40,15 @@ def main():
         config = Configuration.try_from_s3(
             constants.STRATEGY_CONFIG_FILE_NAME, 'sa')
 
-        macd_strategy = MACDCrossoverStrategy.from_configuration(config, 'sa')
-        #macd_strategy = MACDCrossoverStrategy(
-        #    ticker_list, date(2020, 6, 16), 0.0016, 12, 16, 9)
+        #macd_strategy = MACDCrossoverStrategy.from_configuration(config, 'sa')
+        macd_strategy = MACDCrossoverStrategy(
+            ticker_list, date(2020, 6, 16), 0.0016, 12, 26, 9)
         macd_strategy.generate_recommendation()
         #macd_strategy.display_results()
 
-        pd_strategy = PriceDispersionStrategy.from_configuration(config, 'sa')
-        #pd_strategy = PriceDispersionStrategy(
-        #    ticker_list, '2020-06', date(2020, 5, 16), 3)
+        #pd_strategy = PriceDispersionStrategy.from_configuration(config, 'sa')
+        pd_strategy = PriceDispersionStrategy(
+            ticker_list, '2020-06', date(2020, 6, 16), 3)
         pd_strategy.generate_recommendation()
         #pd_strategy.display_results()
 
@@ -83,7 +83,11 @@ def main():
 
         portfolio = pman.create_new_portfolio(recommendation_list, 3)
 
-        pman.update_portfolio(portfolio, recommendation_list, None)
+        pd_strategy.recommendation_set.model['securities_set'].pop()
+
+        sell_positions = pman.update_portfolio(portfolio, recommendation_list, None, 3)
+
+        print(util.format_dict(portfolio.model))
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))
