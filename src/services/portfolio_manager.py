@@ -150,7 +150,7 @@ class PortfolioManager():
             
             return portfolio_candidates
 
-        def handle_remaining_positions(portfolio_candidates: list):
+        def resize_portfolio(portfolio_candidates: list):
             '''
                 Adds or removes positions from the portfolio to ensure that it is
                 of the desired state. When removing positions, remove those with
@@ -177,7 +177,20 @@ class PortfolioManager():
 
                     portfolio_candidates.remove(random_security)
             else:
-                pass
+                # remove positions with the lowest PNL
+                positions_pnl = []
+                for position in portfolio.model['open_positions']:
+                    if 'pending_command' not in position:
+                        positions_pnl.append((position['ticker_symbol'], position['pnl']))
+
+                sorted_pnl = sorted(positions_pnl, reverse=True, key=lambda x: x[1])
+
+                for i in range(abs(remaining_positions)):
+                    removed_ticker = sorted_pnl.pop()[0]
+                    portfolio.get_position(removed_ticker)['pending_command'] = {
+                                                                "action": "UNWIND",
+                                                                "reason": "PORTFOLIO_RESIZE"
+                                                            }
         
         
         sell_securities = []
@@ -189,7 +202,7 @@ class PortfolioManager():
         sell_non_recommended_positions()
 
         portfolio_candidates = generate_portfolio_candidates()
-        handle_remaining_positions(portfolio_candidates)
+        resize_portfolio(portfolio_candidates)
 
         portfolio.validate_model()
 

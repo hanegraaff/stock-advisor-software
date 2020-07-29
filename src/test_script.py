@@ -85,7 +85,7 @@ def main():
 
         pd_strategy.recommendation_set.model['securities_set'].pop()
 
-        sell_positions = pman.update_portfolio(portfolio, recommendation_list, None, 3)
+        sell_positions = pman.update_portfolio(portfolio, recommendation_list, None, 0)
 
         print(util.format_dict(portfolio.model))
 
