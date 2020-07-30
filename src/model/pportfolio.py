@@ -58,6 +58,17 @@ class Portfolio(BaseModel):
         '''
         return [open_position['ticker_symbol'] for open_position in self.model['open_positions']]
 
+    def get_active_position_count(self):
+        '''
+            returns the number of active positions, namely those that don't
+            have any pending commands
+        '''
+        count = 0
+        for position in self.model['open_positions']:
+            if 'pending_command' not in position:
+                count += 1
+        return count
+
     def get_position(self, ticker_symbol: str):
         '''
             Returns a position dictionary given a ticker symbol.
@@ -66,7 +77,26 @@ class Portfolio(BaseModel):
         for position in self.model['open_positions']:
             if position['ticker_symbol'] == ticker_symbol:
                 return position
-        return None  
+        return None
+
+    def unwind_position(self, ticker_symbol: str, reason: str):
+        '''
+            Unwinds a position. If the position is new and not yet
+            open, it will simply be removed, otherwise it will be
+            marked with a pendind command and unwound by the broker
+            object
+        '''
+        position = self.get_position(ticker_symbol)
+
+        if 'open' in position:
+            portfolio_position['pending_command'] = {
+                "action": "UNWIND",
+                "reason": reason
+            }
+        else:
+            self.model['open_positions'].remove(position)
+
+
 
     def copy(self):
         '''

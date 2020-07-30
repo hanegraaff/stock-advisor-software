@@ -82,11 +82,11 @@ def main():
         pman = PortfolioManager()
 
         portfolio = pman.create_new_portfolio(recommendation_list, 3)
+        print(util.format_dict(portfolio.model))
 
         pd_strategy.recommendation_set.model['securities_set'].pop()
 
-        sell_positions = pman.update_portfolio(portfolio, recommendation_list, None, 0)
-
+        pman.update_portfolio(portfolio, recommendation_list, None, 3)
         print(util.format_dict(portfolio.model))
 
     except Exception as e:

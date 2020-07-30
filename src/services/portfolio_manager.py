@@ -121,7 +121,7 @@ class PortfolioManager():
             -------
             An updated portfolio instance
         '''
-        def sell_non_recommended_positions():
+        def unwind_non_recommended_positions():
             '''
                 Mark any positions that are no longer recommended so that they
                 may be unwound by the Broker object
@@ -131,10 +131,7 @@ class PortfolioManager():
                     sell_securities.append(position['ticker_symbol'])
 
             for sell_security in sell_securities:
-                portfolio.get_position(sell_security)['pending_command'] = {
-                    "action": "UNWIND",
-                    "reason": "RECOMMENDATION"
-                }
+                portfolio.unwind_position(sell_security, 'RECOMMENDATION')
         
         def generate_portfolio_candidates():
             '''
@@ -153,10 +150,11 @@ class PortfolioManager():
         def resize_portfolio(portfolio_candidates: list):
             '''
                 Adds or removes positions from the portfolio to ensure that it is
-                of the desired state. When removing positions, remove those with
+                of the desired size. When removing positions, remove those with
                 the lowest PNL
             '''
-            remaining_positions = desired_portfolio_size - (len(portfolio.get_position_securities()) - len(sell_securities))
+
+            remaining_positions = desired_portfolio_size - portfolio.get_active_position_count()
             if remaining_positions > len(portfolio_candidates):
                 remaining_positions = len(portfolio_candidates)
             
@@ -187,11 +185,7 @@ class PortfolioManager():
 
                 for i in range(abs(remaining_positions)):
                     removed_ticker = sorted_pnl.pop()[0]
-                    portfolio.get_position(removed_ticker)['pending_command'] = {
-                                                                "action": "UNWIND",
-                                                                "reason": "PORTFOLIO_RESIZE"
-                                                            }
-        
+                    portfolio.unwind_position(removed_ticker, 'PORTFOLIO_RESIZE')
         
         sell_securities = []
         all_recommended_securities = []
@@ -199,8 +193,7 @@ class PortfolioManager():
         for recommendation_set in recommendation_list:
             all_recommended_securities += [(security, recommendation_set.model['strategy_name']) for security in recommendation_set.get_security_list()]
 
-        sell_non_recommended_positions()
-
+        unwind_non_recommended_positions()
         portfolio_candidates = generate_portfolio_candidates()
         resize_portfolio(portfolio_candidates)
 
