@@ -93,6 +93,7 @@ class PortfolioManager():
                     "ticker_symbol": next_security,
                     "ls_indicator": "LONG",
                     "strategy_name": next_strategy,
+                    "current_price": 0,
                     "quantity": 0,
                     "pnl": 0
                 })
@@ -169,6 +170,7 @@ class PortfolioManager():
                         "ticker_symbol": random_security[0],
                         "ls_indicator": "LONG",
                         "strategy_name": random_security[1],
+                        "current_price": 0,
                         "quantity": 0,
                         "pnl": 0
                     })
@@ -198,7 +200,6 @@ class PortfolioManager():
         resize_portfolio(portfolio_candidates)
 
         portfolio.validate_model()
-
 
 
     def reconcile_portfolio(self, portfolio: object):

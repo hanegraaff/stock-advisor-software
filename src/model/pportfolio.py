@@ -52,11 +52,6 @@ class Portfolio(BaseModel):
     def __init__(self, model_dict: dict):
         super().__init__(model_dict)
 
-    def get_position_securities(self):
-        '''
-            Returns all portfolio securities as a list
-        '''
-        return [open_position['ticker_symbol'] for open_position in self.model['open_positions']]
 
     def get_active_position_count(self):
         '''
@@ -83,8 +78,8 @@ class Portfolio(BaseModel):
         '''
             Unwinds a position. If the position is new and not yet
             open, it will simply be removed, otherwise it will be
-            marked with a pendind command and unwound by the broker
-            object
+            marked with a pendind command indicating that it should
+            be sold.
         '''
         position = self.get_position(ticker_symbol)
 
@@ -95,6 +90,10 @@ class Portfolio(BaseModel):
             }
         else:
             self.model['open_positions'].remove(position)
+
+    
+    def reprice():
+        pass
 
 
 

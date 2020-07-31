@@ -26,7 +26,7 @@ SHARED_MODEL_SCHEMA = {
     "position": {
         "type": "object",
         "required": [
-            "ticker_symbol", "ls_indicator", "strategy_name",
+            "ticker_symbol", "ls_indicator", "strategy_name", "current_price",
             "quantity", "pnl"
         ],
         "properties": {
@@ -46,6 +46,7 @@ SHARED_MODEL_SCHEMA = {
                 }
             },
             "strategy_name": {"type": "string"},
+            "current_price": {"type": "number"},
             "quantity": {"type": "number"},
             "pnl": {"type": "number"},
             "open":{ "$ref": "#/definitions/order"},

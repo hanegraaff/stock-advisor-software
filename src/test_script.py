@@ -61,6 +61,7 @@ def main():
                 "ticker_symbol": "AAPL",
                 "ls_indicator": "LONG",
                 "strategy_name": "MACD_CROSSOVER",
+                "current_price": 0,
                 "quantity": 100,
                 "pnl": 100,
                 "open": {
