@@ -18,7 +18,10 @@ SHARED_MODEL_SCHEMA = {
                 "format": "date-time"
             },
             "order_id": {"type": ["string", "null"]},
-            "order_status": {"type": ["string", "null"]},
+            "order_status": {
+                "type": "string",
+                "enum": ["UNFILLED", "FILLED"]
+            },
             "reason": {"type": "string"}
         },
         "additionalProperties": False

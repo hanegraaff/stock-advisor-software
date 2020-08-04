@@ -16,7 +16,7 @@ from exception.exceptions import AWSError
 from services import portfolio_mgr_svc_new
 from services.broker import Broker
 from services.portfolio_manager import PortfolioManager
-from support import util
+from support import util, constants
 
 log = logging.getLogger()
 
@@ -64,9 +64,12 @@ def main():
         log.info("-app_namespace: %s" % app_ns)
         log.info("-portfolio_size: %d" % portfolio_size)
 
+        current_bus_date = util.get_business_date(constants.BUSINESS_DATE_DAYS_LOOKBACK, 
+                                constants.BUSINESS_DATE_CUTOVER_TIME)
+
         # test all connectivity upfront, so if there any issues
         # the problem becomes more apparent
-        connector_test.test_all_connectivity()
+        # connector_test.test_all_connectivity()
 
         (current_portfolio,
          recommendation_list) = portfolio_mgr_svc_new.get_service_inputs(app_ns)
@@ -79,21 +82,16 @@ def main():
         if current_portfolio is None:
             log.info("Creating new portfolio")
             current_portfolio = portfolio_manager.create_new_portfolio(recommendation_list, portfolio_size)
-            current_portfolio.save_to_s3(app_ns, constants.S3_PORTFOLIO_OBJECT_NAME)
         else:
-            log.info("Updating portfolio")
+            portfolio_manager.update_portfolio(current_portfolio, recommendation_list, None, 3)
 
-        '''if current_portfolio is None:
-            log.info("Creating new portfolio")
-            current_portfolio = Portfolio(None)
-            current_portfolio.create_empty_portfolio(security_recommendation)
-        else:
-            log.info("Repricing portfolio")
-            current_portfolio.reprice(datetime.now())
+        current_portfolio.reprice(current_bus_date)
 
-        (updated_portfolio, updated) = portfolio_mgr_svc.update_portfolio(
-            current_portfolio, security_recommendation, portfolio_size)
+        log.info("Saving updated portfolio")
+        current_portfolio.save_to_s3(
+            app_ns, constants.S3_PORTFOLIO_OBJECT_NAME)
 
+        '''
         # See if there is anything that needs to be traded
         market_open = td_ameritrade.equity_market_open(datetime.now())
 
@@ -136,8 +134,8 @@ def main():
         log.error("Could run script, because: %s" % (str(e)))
         log.error(stack_trace)
 
-        aws_service_wrapper.notify_error(e, "Portfolio Manager Service",
-                                         stack_trace, app_ns)
+        #aws_service_wrapper.notify_error(e, "Portfolio Manager Service",
+        #                                 stack_trace, app_ns)
 
 if __name__ == "__main__":
     main()

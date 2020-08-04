@@ -68,6 +68,7 @@ class PortfolioManager():
             "portfolio_id": str(uuid.uuid1()),
             "portfolio_type": "CURRENT_PORTFOLIO",
             "creation_date": create_time,
+            "price_date": None,
             "last_updated": create_time,
             "open_positions": []
         }

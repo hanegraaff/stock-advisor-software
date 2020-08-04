@@ -23,7 +23,7 @@ class Portfolio(BaseModel):
     schema = {
         "type": "object",
         "required": [
-            "portfolio_id", "portfolio_type", "creation_date", "last_updated", "open_positions"
+            "portfolio_id", "portfolio_type", "creation_date", "last_updated", "price_date", "open_positions"
         ],
         "properties": {
             "portfolio_id": {"type": "string"},
@@ -31,6 +31,10 @@ class Portfolio(BaseModel):
             "creation_date": {
                 "type": "string",
                 "format": "date-time"
+            },
+            "price_date": {
+                "type": ["string", "null"],
+                "format": "date"
             },
             "last_updated": {
                 "type": "string",
@@ -91,9 +95,102 @@ class Portfolio(BaseModel):
         else:
             self.model['open_positions'].remove(position)
 
-    
-    def reprice():
-        pass
+    """
+        def reprice(self, price_date: datetime):
+            '''
+            Reads the current prices, computes the latest returns
+            and updates the portfolio object.
+        '''
+
+        # Update the current returns in the securities set
+        for security in self.model['securities_set']:
+            analysis_price = security['analysis_price']
+
+            # get_daily_stock_close_prices
+
+            (price_date_str, latest_price) = intrinio_data.get_latest_close_price(
+                security['ticker_symbol'], price_date, 5)
+            security['current_price'] = latest_price
+
+        # if a portfolio exsts, reprice it too
+        if not self.is_empty():
+            for security in self.model['current_portfolio']['securities']:
+                purchase_price = security['purchase_price']
+                (price_date_str, latest_price) = intrinio_data.get_latest_close_price(
+                    security['ticker_symbol'], price_date, 5)
+                security['current_price'] = latest_price
+
+        self.recalc_returns()
+
+        # finally set the price date
+        try:
+            price_date = parser.parse(price_date_str).date()
+        except Exception as e:
+            raise ValidationError(
+                "Could parse price date returned by Intrinio API", e)
+
+        self.model['price_date'] = str(price_date)
+        log.info("Repriced portfolio for date of %s" % str(price_date))
+
+    def recalc_returns(self):
+        '''
+            Iterates through the portfolio and recalculates the retuns
+        '''
+
+        # Update the current returns in the securities set
+        for security in self.model['securities_set']:
+            analysis_price = security['analysis_price']
+            latest_price = security['current_price']
+
+            if analysis_price > 0:
+                security['current_returns'] = (
+                    (latest_price / analysis_price) - 1)
+            else:
+                security['current_returns'] = 0
+
+        # if a portfolio exsts, reprice it too
+        if not self.is_empty():
+            for security in self.model['current_portfolio']['securities']:
+                purchase_price = security['purchase_price']
+                latest_price = security['current_price']
+
+                if purchase_price > 0:
+                    security['current_returns'] = (
+                        (latest_price / purchase_price) - 1)
+                else:
+                    security['current_returns'] = 0
+    """
+    def reprice(self, price_date: datetime):
+        '''
+            reprices the portfolio and recomputed the PNL
+        '''
+
+        price_date_str = price_date.strftime("%Y-%m-%d")
+
+        def compute_pnl(position: dict):
+            if 'open' in position and position['open']['order_status'] == 'FILLED':
+                current_price = position['current_price']
+                buy_price = position['open']['price']
+                if buy_price == 0:
+                    ticker = position['ticker_symbol']
+                    raise ValidationError("Cannot compute PNL for %s, because buy price is 0" % ticker, None)
+                position['pnl'] = current_price / buy_price
+            
+
+        self.model['price_date'] =  price_date_str
+        self.model['last_updated'] = util.datetime_to_iso_utc_string(datetime.now())
+        
+        for position in self.model['open_positions']:
+            ticker_symbol = position['ticker_symbol']
+            current_price = intrinio_data.get_daily_stock_close_prices(
+                ticker_symbol, price_date, price_date
+            )
+
+            position['current_price'] = current_price[price_date_str]
+            compute_pnl(position)
+
+        self.validate_model()
+
 
 
 

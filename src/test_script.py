@@ -56,6 +56,7 @@ def main():
             "positions_id": "123",
             "positions_type": "OPEN_POSITIONS",
             "creation_date": "2020-06-23T12:30:47.271203+00:00",
+            "price_date": "2020-06-23",
             "last_updated": "2020-06-23T12:30:47.271203+00:00",
             "positions": [{
                 "ticker_symbol": "AAPL",
@@ -83,12 +84,18 @@ def main():
         pman = PortfolioManager()
 
         portfolio = pman.create_new_portfolio(recommendation_list, 3)
-        print(util.format_dict(portfolio.model))
+        #print(util.format_dict(portfolio.model))
 
         pd_strategy.recommendation_set.model['securities_set'].pop()
 
         pman.update_portfolio(portfolio, recommendation_list, None, 3)
         print(util.format_dict(portfolio.model))
+
+        portfolio.reprice(util.get_business_date(constants.BUSINESS_DATE_DAYS_LOOKBACK, 
+                                constants.BUSINESS_DATE_CUTOVER_TIME))
+
+        print(util.format_dict(portfolio.model))
+
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))
