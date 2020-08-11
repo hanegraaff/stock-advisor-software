@@ -361,9 +361,9 @@ def list_recent_transactions():
             },
             "transactionItem": {
                 "accountId": 12345678,
-                "amount": 67.0,
-                "price": 6.85,
-                "cost": 458.95,
+                "amount": 10.00,
+                "price": 1.00,
+                "cost": 10.00,
                 "instruction": "SELL",
                 "instrument": {
                     "symbol": "GE",
