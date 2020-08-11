@@ -331,6 +331,97 @@ def cancel_order(order_id: str):
 
 
 @td_authenticate
+def list_recent_transactions():
+    '''
+        Calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/transactions' API and
+        returns the transactions for the past day, and summarizes them in a dictionary
+        like this:
+
+        {
+           "type": "TRADE",
+            "subAccount": "1",
+            "settlementDate": "2020-07-07",
+            "orderId": "1236973141",
+            "netAmount": 458.93,
+            "transactionDate": "2020-07-02T15:01:52+0000",
+            "orderDate": "2020-07-02T15:01:52+0000",
+            "transactionSubType": "SL",
+            "transactionId": 27385544351,
+            "cashBalanceEffectFlag": true,
+            "description": "SELL TRADE",
+            "fees": {
+                "rFee": 0.0,
+                "additionalFee": 0.0,
+                "cdscFee": 0.0,
+                "regFee": 0.02,
+                "otherCharges": 0.0,
+                "commission": 0.0,
+                "optRegFee": 0.0,
+                "secFee": 0.01
+            },
+            "transactionItem": {
+                "accountId": 12345678,
+                "amount": 10.00,
+                "price": 1.00,
+                "cost": 10.00,
+                "instruction": "SELL",
+                "instrument": {
+                    "symbol": "GE",
+                    "cusip": "369604103",
+                    "assetType": "EQUITY"
+                }
+            }
+        }
+
+
+        {
+            "transactionId": {
+                "transactionDate": "2020-07-02T15:01:52+0000",
+                "orderDate": "2020-07-02T15:01:52+0000",
+                "amount": 10,
+                "price": 100.00,
+                "cost": 1000.00,
+                "instruction": "BUY",
+                "symbol": "GE",
+                "assetType": "EQUITY"
+            },
+        }
+    '''
+    recent_transactions = {}
+    td_account_id = get_credentials()[0]
+
+    params = {
+        'type': 'TRADE',
+        'startDate': (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d"),
+        'endDate': (datetime.now().strftime("%Y-%m-%d")),
+    }
+
+    transaction_list = request('GET', 'https://api.tdameritrade.com/v1/accounts/%s/transactions' %
+                         td_account_id, params=params, payload=None)[1]
+
+    for transaction in transaction_list:
+        print(util.format_dict(transaction))
+        '''order_id = str(order['orderId'])
+        recent_orders[order_id] = {}
+
+        recent_orders[order_id]['status'] = order['status']
+        recent_orders[order_id]['symbol'] = order[
+            'orderLegCollection'][0]['instrument']['symbol']
+        recent_orders[order_id]['quantity'] = order[
+            'orderLegCollection'][0]['quantity']
+        try:
+            close_time = order['closeTime']
+        except:
+            close_time = None
+        recent_orders[order_id]['closeTime'] = close_time
+        recent_orders[order_id]['tag'] = order['tag']
+        recent_orders[order_id]['cancelable'] = order['cancelable']'''
+
+    return recent_transactions
+
+
+
+@td_authenticate
 def list_recent_orders():
     '''
         Calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
