@@ -6,7 +6,7 @@ This module contains shared schema objects shared between models
 
 SHARED_MODEL_SCHEMA = {
   "definitions": {
-    "order":{
+    "order": {
         "type": "object",
         "required": [
             "price", "date", "order_id", "order_status", "reason"
