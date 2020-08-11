@@ -360,7 +360,7 @@ def list_recent_transactions():
                 "secFee": 0.01
             },
             "transactionItem": {
-                "accountId": 872137934,
+                "accountId": 12345678,
                 "amount": 67.0,
                 "price": 6.85,
                 "cost": 458.95,
