@@ -26,7 +26,7 @@ class Broker():
             based on the contents of the brokerage account.
     '''
 
-    def reconcile_portfolio(self, broker_positions: dict, current_portfolio: object):
+    def reconcile_portfolio(self, portfolio: object):
         '''
             Compares the current portfolio with the current positions recorded
             in the Brokerage account. Returns true if symbol and quantity match,
@@ -34,16 +34,15 @@ class Broker():
 
             Parameters
             ----------
-            broker_positions : dict
-                Current positions fetched from the brokerage account
-
-            current_portfolio : object
+            portfolio : object
                 Current Portfolio object
         '''
 
+        broker_positions = td_ameritrade.positions_summary()
+
         # flatten portfolio into two lists that can be easily compared
         portfolio_list = [(sec['ticker_symbol'], sec['quantity'])
-                          for sec in current_portfolio.model['current_portfolio']['securities']]
+                          for sec in portfolio.model['open_positions']]
         portfolio_list.sort(key=lambda s: s[0])
 
         positions_list = [(sec, broker_positions['equities'][sec]['longQuantity'])
@@ -60,7 +59,7 @@ class Broker():
 
         return True
 
-    def synchronize_portfolio(self, broker_positions: dict, current_portfolio: object):
+    def synchronize_portfolio_state(self, portfolio: object):
         '''
             Matches the state of the supplied portfolio object with that of the
             latest positions listed in the brokerage account. This method is useful
@@ -69,20 +68,16 @@ class Broker():
 
             Parameters
             ----------
-            broker_positions : dict
-                Current positions fetched from the brokerage account
-
             current_portfolio : object
                 Current Portfolio object
         '''
         def get_broker_position(ticker: str):
-            try:
-                return broker_positions['equities'][ticker]
-            except Exception:
-                return None
+            return  broker_positions.get('equities', {}).get(ticker, None)
 
-        for sec in current_portfolio.model['current_portfolio']['securities']:
-            position = get_broker_position(sec['ticker_symbol'])
+        broker_positions = td_ameritrade.positions_summary()
+
+        for sec in current_portfolio.model['open_positions']:
+            broker_positoon = get_broker_position(sec['ticker_symbol'])
 
             if (position != None):
                 sec['trade_state'] = 'FILLED'
