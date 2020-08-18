@@ -42,11 +42,15 @@ def main():
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))
-        #raise e
+        raise e
 
 
 def test_read_transactions():
-    td_ameritrade.list_recent_transactions()
+    '''
+        test the ability to read historical transaction
+    '''
+    recent_transactions = td_ameritrade.list_recent_transactions()
+    print(util.format_dict(recent_transactions))
 
 
 def test_broker():
