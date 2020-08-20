@@ -338,16 +338,18 @@ def list_recent_transactions():
         like this:
 
         {
-            "transactionDate" {
-                "transactionId": 27385544351,
-                "orderDate": "2020-07-02T15:01:52+0000",
-                "amount": 10,
-                "price": 100.00,
-                "cost": 1000.00,
-                "instruction": "BUY",
-                "symbol": "GE",
-                "assetType": "EQUITY"
-            },
+            "GE":[
+                {
+                    "transactionId": 27385544351,
+                    "transactionDate": "2020-07-02T15:01:52+0000"
+                    "orderDate": "2020-07-02T15:01:52+0000",
+                    "amount": 10,
+                    "price": 100.00,
+                    "cost": 1000.00,
+                    "instruction": "BUY",
+                    "assetType": "EQUITY"
+                },
+            ]
         }
     '''
     recent_transactions = {}
@@ -355,7 +357,7 @@ def list_recent_transactions():
 
     params = {
         'type': 'TRADE',
-        'startDate': (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d"),
+        'startDate': (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d"),
         'endDate': (datetime.now().strftime("%Y-%m-%d")),
     }
 
@@ -364,8 +366,14 @@ def list_recent_transactions():
 
     for transaction in transaction_list:
         try:
-            recent_transactions[transaction['transactionDate']] = {
+            symbol = transaction['transactionItem']['instrument']['symbol']
+
+            if symbol not in recent_transactions:
+                recent_transactions[symbol] = []
+
+            recent_transactions[symbol].append({
                 'transactionId': transaction['transactionId'],
+                'transactionDate': transaction['transactionDate'],
                 'orderDate': transaction['orderDate'],
                 'amount': transaction['transactionItem']['amount'],
                 'price': transaction['transactionItem']['price'],
@@ -373,7 +381,8 @@ def list_recent_transactions():
                 'instruction': transaction['transactionItem']['instruction'],
                 'symbol': transaction['transactionItem']['instrument']['symbol'],
                 'assetType': transaction['transactionItem']['instrument']['assetType']
-            }
+            })
+
         except Exception as e:
             raise TradeError("Could not parse transactions", e, None)
 
