@@ -217,6 +217,7 @@ class PortfolioManager():
             current_portfolio : object
                 Current Portfolio object
         '''
+        pass
 
 
 

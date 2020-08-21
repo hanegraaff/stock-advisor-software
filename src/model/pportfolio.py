@@ -162,7 +162,7 @@ class Portfolio(BaseModel):
     """
     def reprice(self, price_date: datetime):
         '''
-            reprices the portfolio and recomputed the PNL
+            reprice the portfolio and recompute the PNL
         '''
 
         price_date_str = price_date.strftime("%Y-%m-%d")
