@@ -247,7 +247,7 @@ def positions_summary():
 
     acct_response = request('GET', 'https://api.tdameritrade.com/v1/accounts/%s' %
                             td_account_id, params={'fields': ['positions']}, payload=None)[1]
-
+    
     if acct_response['securitiesAccount']['type'] != 'CASH':
         raise ValidationError(
             "TDAmeritrade cccount must be a CASH account", None)

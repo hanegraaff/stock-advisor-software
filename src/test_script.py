@@ -38,7 +38,8 @@ def main():
 
         #test_portfolio_manager()
         #test_broker()
-        test_read_transactions()
+        #test_read_transactions()
+        test_read_positions()
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))
@@ -51,6 +52,13 @@ def test_read_transactions():
     '''
     recent_transactions = td_ameritrade.list_recent_transactions()
     print(util.format_dict(recent_transactions))
+
+def test_read_positions():
+    '''
+        test the ability to read historical transaction
+    '''
+    positions = td_ameritrade.positions_summary()
+    print(util.format_dict(positions))
 
 
 def test_broker():

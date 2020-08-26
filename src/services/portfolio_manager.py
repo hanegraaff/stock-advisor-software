@@ -205,9 +205,8 @@ class PortfolioManager():
 
     def reconcile_portfolio(self, portfolio: object):
         '''
-            Compares the current portfolio with the current positions recorded
-            in the Brokerage account. Returns true if symbol and quantity match,
-            otherwise returns false.
+            Reconciles the current portfolio with the current positions and transactions 
+            recorded in the Brokerage account. 
 
             Parameters
             ----------
