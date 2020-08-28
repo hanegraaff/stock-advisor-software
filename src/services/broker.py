@@ -108,7 +108,7 @@ class Broker():
                             (order_id, str(te)))
         log.info("Attempting to cancel all open orders")
 
-        recent_oders = td_ameritrade.list_recent_orders()
+        recent_oders = td_ameritrade.list_recent_orders_by_id()
 
         for order_id in recent_oders.keys():
             order = recent_oders[order_id]
@@ -227,7 +227,7 @@ class Broker():
         #
         for i in range(0, 5):
             log.info("Waiting for all trades to execute")
-            recent_orders = td_ameritrade.list_recent_orders()
+            recent_orders = td_ameritrade.list_recent_orders_by_id()
 
             completed = True
             for order_id in recent_orders.keys():

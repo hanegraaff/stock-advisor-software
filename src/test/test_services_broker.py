@@ -257,7 +257,7 @@ class TestBroker(unittest.TestCase):
             that only the cancelable ones are being considered
         '''
         with patch.object(td_ameritrade, 'cancel_order', return_value=None) as mock_cancel_order, \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-1": {
                         "status": "FILLED",
                         "symbol": "BA",
@@ -295,7 +295,7 @@ class TestBroker(unittest.TestCase):
             that only the cancelable ones are being considered
         '''
         with patch.object(td_ameritrade, 'cancel_order', side_effect=TradeError("SomeError", None, None)), \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-1": {
                         "status": "FILLED",
                         "symbol": "BA",
@@ -365,7 +365,7 @@ class TestBroker(unittest.TestCase):
         sell_positions = [('BA', 1.0)]
 
         with patch.object(td_ameritrade, 'place_order', return_value='order-xxx'), \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-xxx": {
                         "status": "FILLED",
                         "symbol": "BA",
@@ -389,7 +389,7 @@ class TestBroker(unittest.TestCase):
         portfolio = Portfolio.from_dict(portfolio)
 
         with patch.object(td_ameritrade, 'place_order', return_value='order-xxx'), \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-xxx": {
                         "status": "FILLED",
                         "symbol": "BA",
@@ -418,7 +418,7 @@ class TestBroker(unittest.TestCase):
 
         with patch.object(td_ameritrade, 'place_order', side_effect=[
                 'order-1', 'order-2', 'order-3']), \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-1": {
                         "status": "FILLED",
                         "symbol": "BA",
@@ -471,7 +471,7 @@ class TestBroker(unittest.TestCase):
 
         with patch.object(td_ameritrade, 'place_order', side_effect=[
                 'order-1', 'order-2', TradeError("Some Error", None, None)]), \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-1": {
                         "status": "FILLED",
                         "symbol": "BA",
@@ -502,7 +502,7 @@ class TestBroker(unittest.TestCase):
 
         with patch.object(td_ameritrade, 'place_order', side_effect=[
                 'order-1', 'order-2', 'order-3']), \
-                patch.object(td_ameritrade, 'list_recent_orders', return_value={
+                patch.object(td_ameritrade, 'list_recent_orders_by_id', return_value={
                     "order-1": {
                         "status": "FILLED",
                         "symbol": "BA",

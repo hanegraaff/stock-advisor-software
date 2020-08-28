@@ -39,11 +39,20 @@ def main():
         #test_portfolio_manager()
         #test_broker()
         #test_read_transactions()
-        test_read_positions()
+        test_read_orders()
+        #test_read_positions()
 
     except Exception as e:
         log.error("Could run script, because, %s" % (str(e)))
         raise e
+
+
+def test_read_orders():
+    '''
+        test the ability to read historical (recent) positions
+    '''
+    recent_orders = td_ameritrade.list_recent_orders_by_id()
+    print(util.format_dict(recent_orders))
 
 
 def test_read_transactions():

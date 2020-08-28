@@ -400,7 +400,7 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
         "accountId": 999999999
     }]
 
-    def test_list_recent_orders_valid_response(self):
+    def test_list_recent_orders_by_id_valid_response(self):
         response = deepcopy(self.td_order_list)
 
         with patch.object(td_ameritrade, 'get_credentials',
@@ -408,7 +408,7 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
                 patch.object(td_ameritrade, 'login', return_value=None),\
                 patch.object(td_ameritrade, 'request', return_value=(None, response)):
 
-            order_summary = td_ameritrade.list_recent_orders()
+            order_summary = td_ameritrade.list_recent_orders_by_id()
 
             self.assertDictEqual(order_summary, {
                 "2222222222": {
@@ -429,13 +429,13 @@ class TestConnectorsTDAmeritrade(unittest.TestCase):
                 }
             })
 
-    def test_list_recent_orders_no_orders(self):
+    def test_list_recent_orders_by_id_no_orders(self):
         with patch.object(td_ameritrade, 'get_credentials',
                           return_value=("aaa", "bbb", "ccc")), \
                 patch.object(td_ameritrade, 'login', return_value=None),\
                 patch.object(td_ameritrade, 'request', return_value=(None, [])):
 
-            order_summary = td_ameritrade.list_recent_orders()
+            order_summary = td_ameritrade.list_recent_orders_by_id()
 
             self.assertDictEqual(order_summary, {})
 

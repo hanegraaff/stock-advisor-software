@@ -334,7 +334,7 @@ def cancel_order(order_id: str):
 def list_recent_transactions():
     '''
         Calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/transactions' API and
-        returns the transactions for the past day, and summarizes them in a dictionary
+        returns the transactions for the past year, and summarizes them in a dictionary
         like this:
 
         {
@@ -390,11 +390,31 @@ def list_recent_transactions():
 
 
 
+def _call_orders_api(days_history: int):
+    '''
+        Utility method that calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
+        returns the raw response
+    '''
+    if days_history <= 0:
+        days_history = 1
+    
+    td_account_id = get_credentials()[0]
+
+    params = {
+        'fromEnteredTime': (datetime.now() - timedelta(days=days_history)).strftime("%Y-%m-%d"),
+        'toEnteredTime': (datetime.now().strftime("%Y-%m-%d")),
+    }
+
+    return request('GET', 'https://api.tdameritrade.com/v1/accounts/%s/orders' %
+                td_account_id, params=params, payload=None)[1]
+
+
+
 @td_authenticate
-def list_recent_orders():
+def list_recent_orders_by_id():
     '''
         Calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
-        returns the orders for the past day, and summarizes them in a dictionary
+        returns the orders for the past 60 days, and summarizes them in a dictionary
         like this:
 
         {
@@ -409,15 +429,9 @@ def list_recent_orders():
         }
     '''
     recent_orders = {}
-    td_account_id = get_credentials()[0]
+    
 
-    params = {
-        'fromEnteredTime': (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d"),
-        'toEnteredTime': (datetime.now().strftime("%Y-%m-%d")),
-    }
-
-    order_list = request('GET', 'https://api.tdameritrade.com/v1/accounts/%s/orders' %
-                         td_account_id, params=params, payload=None)[1]
+    order_list = _call_orders_api(365)
 
     for order in order_list:
         order_id = str(order['orderId'])
