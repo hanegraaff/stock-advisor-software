@@ -392,7 +392,7 @@ def list_recent_transactions():
 
 def _call_orders_api(days_history: int):
     '''
-        Utility method that calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
+        Helper method that calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
         returns the raw response
     '''
     if days_history <= 0:
@@ -414,13 +414,57 @@ def _call_orders_api(days_history: int):
 def list_recent_orders_by_id():
     '''
         Calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
-        returns the orders for the past 60 days, and summarizes them in a dictionary
+        returns the orders for the past 5 days, and summarizes them in a dictionary
         like this:
 
         {
             "orderId": {
                 "status": "CANCELED",
                 "symbol": "SPY",
+                "quantity": 8.0,
+                "closeTime": "2020-05-04T03:21:04+0000",
+                "tag": "AA_myuser",
+                "cancelable": False
+            },
+        }
+    '''
+    recent_orders = {}
+    
+
+    order_list = _call_orders_api(50)
+
+    print(util.format_dict(order_list))
+
+    for order in order_list:
+        order_id = str(order['orderId'])
+        recent_orders[order_id] = {}
+
+        recent_orders[order_id]['status'] = order['status']
+        recent_orders[order_id]['symbol'] = order[
+            'orderLegCollection'][0]['instrument']['symbol']
+        recent_orders[order_id]['quantity'] = order[
+            'orderLegCollection'][0]['quantity']
+        try:
+            close_time = order['closeTime']
+        except:
+            close_time = None
+        recent_orders[order_id]['closeTime'] = close_time
+        recent_orders[order_id]['tag'] = order['tag']
+        recent_orders[order_id]['cancelable'] = order['cancelable']
+
+    return recent_orders
+
+@td_authenticate
+def list_recent_orders_by_symbol():
+    '''
+        Calls the 'https://api.tdameritrade.com/v1/accounts/{ACCOUNT_ID}/orders' API and
+        returns the orders for the past year, and summarizes them in a dictionary
+        like this:
+
+        {
+            "symbol": {
+                "status": "FILLED",
+                "orderId": "1234567890",
                 "quantity": 8.0,
                 "closeTime": "2020-05-04T03:21:04+0000",
                 "tag": "AA_myuser",
@@ -449,6 +493,24 @@ def list_recent_orders_by_id():
         recent_orders[order_id]['closeTime'] = close_time
         recent_orders[order_id]['tag'] = order['tag']
         recent_orders[order_id]['cancelable'] = order['cancelable']
+
+    '''for order in order_list:
+        order_id = str(order['orderId'])
+        recent_orders[order_id] = {}
+
+        recent_orders[order_id]['status'] = order['status']
+        recent_orders[order_id]['symbol'] = order[
+            'orderLegCollection'][0]['instrument']['symbol']
+        recent_orders[order_id]['quantity'] = order[
+            'orderLegCollection'][0]['quantity']
+        try:
+            close_time = order['closeTime']
+        except:
+            close_time = None
+        recent_orders[order_id]['closeTime'] = close_time
+        recent_orders[order_id]['tag'] = order['tag']
+        recent_orders[order_id]['cancelable'] = order['cancelable']
+    '''
 
     return recent_orders
 
